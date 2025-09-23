@@ -27,8 +27,7 @@ app.post('/upload', upload.single('myFile'), (req, res) => {
     }
 });
 
-// THIS IS THE NEW CODE!
-// It handles requests for the proof pages (e.g., /proof/c207e5...)
+// This handles requests for the proof pages (e.g., /proof/c207e5...)
 app.get('/proof/:hash', (req, res) => {
     const hash = req.params.hash;
 
