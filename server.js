@@ -43,6 +43,10 @@ app.get('/', (req, res) => {
             <div class="bg-gray-800 p-8 rounded-xl shadow-lg w-11/12 max-w-2xl text-center">
                 <h1 class="text-4xl md:text-5xl font-bold mb-4">LinkProof.co</h1>
                 <p class="text-gray-400 mb-6">Future-proof your content. Get a permanent public receipt for your work.</p>
+                <div class="flex space-x-4 justify-center mb-6">
+                    <a href="/" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition-colors duration-200">Create a Receipt</a>
+                    <a href="/verify" class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded transition-colors duration-200">Verify a File</a>
+                </div>
 
                 <form id="uploadForm" class="flex flex-col items-center mb-6">
                     <label for="file-upload" class="cursor-pointer">
@@ -208,8 +212,6 @@ app.get('/proof/:hash', async (req, res) => {
     res.send(htmlContent);
 });
 
-// ADDED: New routes for the "Verify" feature
-
 // This serves the "Verify" page
 app.get('/verify', (req, res) => {
     const htmlContent = `
@@ -225,6 +227,10 @@ app.get('/verify', (req, res) => {
             <div class="bg-gray-800 p-8 rounded-xl shadow-lg w-11/12 max-w-2xl text-center">
                 <h1 class="text-4xl md:text-5xl font-bold mb-4">Verify a File</h1>
                 <p class="text-gray-400 mb-6">Upload a file to check if a digital receipt already exists for it.</p>
+                <div class="flex space-x-4 justify-center mb-6">
+                    <a href="/" class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded transition-colors duration-200">Create a Receipt</a>
+                    <a href="/verify" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition-colors duration-200">Verify a File</a>
+                </div>
 
                 <form id="verifyForm" class="flex flex-col items-center mb-6">
                     <label for="file-upload" class="cursor-pointer">
