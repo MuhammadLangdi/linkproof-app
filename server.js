@@ -3,11 +3,11 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const crypto = require('crypto');
-const fs = require('fs');
+// We no longer need the 'fs' module since we are not saving the file.
+// const fs = require('fs');
 
 // We create an 'app' to represent our server.
 const app = express();
-const port = 3000;
 
 // Set up Multer to store the file in memory temporarily.
 const upload = multer({ storage: multer.memoryStorage() });
@@ -24,21 +24,10 @@ app.post('/upload', upload.single('myFile'), (req, res) => {
     }
 
     try {
-        // Create the 'proofs' folder if it doesn't exist.
-        const dir = './proofs';
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir);
-        }
-
         // Generate the hash from the file buffer (the in-memory data).
         const hash = crypto.createHash('sha256').update(req.file.buffer).digest('hex');
-        const extension = path.extname(req.file.originalname);
-        const filename = hash + extension;
-        const filePath = path.join(dir, filename);
 
-        // Save the file to the 'proofs' folder.
-        fs.writeFileSync(filePath, req.file.buffer);
-
+        // The 'proof' is the hash itself. The file is not saved.
         const link = `https://linkproof.co/proof/${hash}`;
 
         res.json({ link: link });
@@ -49,6 +38,6 @@ app.post('/upload', upload.single('myFile'), (req, res) => {
 });
 
 // This tells our server to start listening for requests.
-app.listen(port, () => {
-    console.log(`LinkProof server listening on http://localhost:${port}`);
+app.listen(3000, () => {
+    console.log(`LinkProof server listening on http://localhost:3000`);
 });
