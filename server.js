@@ -41,10 +41,14 @@ app.get('/', (req, res) => {
             </div>
 
             <script>
-                const form = document.getElementById('uploadForm');
                 const fileInput = document.getElementById('file-upload');
+                const uploadButton = document.querySelector('button');
                 const responseMessage = document.getElementById('responseMessage');
                 const linkProof = document.getElementById('linkProof');
+
+                uploadButton.addEventListener('click', () => {
+                    fileInput.click();
+                });
 
                 fileInput.addEventListener('change', async (event) => {
                     const file = event.target.files[0];
