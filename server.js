@@ -3,7 +3,6 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const crypto = require('crypto');
-const { MongoClient } = require('mongodb'); // ADDED: Import MongoClient from the mongodb package.
 const app = express();
 const upload = multer({
     storage: multer.memoryStorage(),
@@ -11,22 +10,6 @@ const upload = multer({
         fileSize: 5 * 1024 * 1024 // 5 MB in bytes
     }
 });
-
-// ADDED: Database connection setup
-const uri = process.env.MONGODB_URI;
-const client = new MongoClient(uri);
-const dbName = "linkproof-db"; // You can change this to a different name if you'd like.
-
-async function connectToDatabase() {
-    try {
-        await client.connect();
-        console.log("Connected to MongoDB Atlas!");
-    } catch (error) {
-        console.error("Could not connect to database:", error);
-    }
-}
-
-connectToDatabase();
 
 // This serves your front-end HTML.
 app.get('/', (req, res) => {
@@ -121,23 +104,13 @@ app.get('/', (req, res) => {
 });
 
 // This is the upload endpoint.
-app.post('/upload', upload.single('myFile'), async (req, res) => { // ADDED: 'async' keyword
+app.post('/upload', upload.single('myFile'), (req, res) => {
     if (!req.file) {
         return res.status(400).send('No file uploaded.');
     }
 
     try {
         const hash = crypto.createHash('sha256').update(req.file.buffer).digest('hex');
-
-        // ADDED: Save the hash to the database
-        const database = client.db(dbName);
-        const receiptsCollection = database.collection("receipts");
-        const receiptDocument = {
-            hash: hash,
-            timestamp: new Date()
-        };
-        await receiptsCollection.insertOne(receiptDocument);
-
         const link = "https://linkproof.co/proof/" + hash;
         res.json({ link: link });
     } catch (error) {
@@ -147,39 +120,8 @@ app.post('/upload', upload.single('myFile'), async (req, res) => { // ADDED: 'as
 });
 
 // This handles requests for the proof pages (e.g., /proof/c207e5...)
-app.get('/proof/:hash', async (req, res) => { // ADDED: 'async' keyword
+app.get('/proof/:hash', (req, res) => {
     const hash = req.params.hash;
-
-    // ADDED: Check if the hash exists in the database
-    const database = client.db(dbName);
-    const receiptsCollection = database.collection("receipts");
-    const receipt = await receiptsCollection.findOne({ hash: hash });
-
-    if (!receipt) {
-        // If no receipt is found, show a not-found page
-        return res.status(404).send(`
-            <!DOCTYPE html>
-            <html lang="en">
-            <head>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Receipt Not Found</title>
-                <script src="https://cdn.tailwindcss.com"></script>
-            </head>
-            <body class="bg-gray-900 text-white font-sans flex flex-col items-center justify-center min-h-screen">
-                <div class="bg-gray-800 p-8 rounded-xl shadow-lg w-11/12 max-w-md text-center">
-                    <h1 class="text-6xl font-bold text-red-500 mb-4">404</h1>
-                    <h2 class="text-2xl font-semibold text-gray-200 mb-2">Receipt Not Found</h2>
-                    <p class="text-gray-400 mb-6">The digital receipt you are looking for does not exist.</p>
-                    <a href="/" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition-colors duration-200">Go to Homepage</a>
-                </div>
-                <footer class="mt-12 text-center text-sm text-gray-500">
-                    <p>&copy; 2025 All rights reserved to Muhammad Langdi.</p>
-                </footer>
-            </body>
-            </html>
-        `);
-    }
 
     const htmlContent = `
         <!DOCTYPE html>
