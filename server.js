@@ -1,3 +1,12 @@
+// This imports all the tools we need for our server.
+const express = require('express');
+const multer = require('multer');
+const path = require('path');
+const crypto = require('crypto');
+const app = express();
+const upload = multer({ storage: multer.memoryStorage() });
+
+// This serves your front-end HTML.
 app.get('/', (req, res) => {
     const htmlContent = `
         <!DOCTYPE html>
@@ -133,7 +142,5 @@ app.get('/proof/:hash', (req, res) => {
     res.send(htmlContent);
 });
 
-// This tells our server to start listening for requests.
-app.listen(3000, () => {
-    console.log(`LinkProof server listening on http://localhost:3000`);
-});
+// This tells Vercel to use your Express app for all requests.
+module.exports = app;
