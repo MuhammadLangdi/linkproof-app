@@ -111,7 +111,8 @@ app.post('/upload', upload.single('myFile'), (req, res) => {
 
     try {
         const hash = crypto.createHash('sha256').update(req.file.buffer).digest('hex');
-        const link = "https://linkproof.co/proof/" + hash;
+        const timestamp = new Date().toISOString();
+        const link = `https://linkproof.co/proof/${hash}?ts=${encodeURIComponent(timestamp)}`;
         res.json({ link: link });
     } catch (error) {
         console.error("Error processing file upload:", error);
@@ -122,6 +123,7 @@ app.post('/upload', upload.single('myFile'), (req, res) => {
 // This handles requests for the proof pages (e.g., /proof/c207e5...)
 app.get('/proof/:hash', (req, res) => {
     const hash = req.params.hash;
+    const timestamp = req.query.ts;
 
     const htmlContent = `
         <!DOCTYPE html>
@@ -140,6 +142,7 @@ app.get('/proof/:hash', (req, res) => {
                     <p class="text-green-500 font-mono text-sm">${hash}</p>
                 </div>
                 <p class="text-gray-400 text-sm mt-4">The integrity of the file can be verified by comparing its hash with this URL.</p>
+                <p class="text-gray-400 text-sm mt-4">This receipt was created on **${new Date(timestamp).toUTCString()}**.</p>
                 <div class="mt-8">
                     <a href="https://www.linkproof.co" class="text-blue-400 hover:text-blue-300 transition-colors duration-200">Go back to LinkProof.co</a>
                 </div>
