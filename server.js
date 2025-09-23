@@ -153,5 +153,32 @@ app.get('/proof/:hash', (req, res) => {
     res.send(htmlContent);
 });
 
+// This is the custom 404 page. It must come LAST in your code.
+app.use((req, res, next) => {
+    const htmlContent = `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Page Not Found</title>
+            <script src="https://cdn.tailwindcss.com"></script>
+        </head>
+        <body class="bg-gray-900 text-white font-sans flex flex-col items-center justify-center min-h-screen">
+            <div class="bg-gray-800 p-8 rounded-xl shadow-lg w-11/12 max-w-md text-center">
+                <h1 class="text-6xl font-bold text-red-500 mb-4">404</h1>
+                <h2 class="text-2xl font-semibold text-gray-200 mb-2">Page Not Found</h2>
+                <p class="text-gray-400 mb-6">The page you are looking for does not exist or has been moved.</p>
+                <a href="/" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition-colors duration-200">Go to Homepage</a>
+            </div>
+            <footer class="mt-12 text-center text-sm text-gray-500">
+                <p>&copy; 2025 All rights reserved to Muhammad Langdi.</p>
+            </footer>
+        </body>
+        </html>
+    `;
+    res.status(404).send(htmlContent);
+});
+
 // This tells Vercel to use your Express app for all requests.
 module.exports = app;
