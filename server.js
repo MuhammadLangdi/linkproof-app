@@ -4,7 +4,12 @@ const multer = require('multer');
 const path = require('path');
 const crypto = require('crypto');
 const app = express();
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: {
+        fileSize: 5 * 1024 * 1024 // 5 MB in bytes
+    }
+});
 
 // This serves your front-end HTML.
 app.get('/', (req, res) => {
@@ -31,6 +36,8 @@ app.get('/', (req, res) => {
                         </div>
                     </label>
                 </form>
+
+                <p class="text-gray-400 text-sm mt-2">Maximum file size is 5MB.</p>
 
                 <p id="responseMessage" class="text-gray-300 text-sm"></p>
                 <a id="linkProof" href="#" class="text-blue-400 hover:text-blue-300 transition-colors duration-200 hidden mt-4"></a>
