@@ -111,7 +111,7 @@ app.post('/upload', upload.single('myFile'), (req, res) => {
 
     try {
         const hash = crypto.createHash('sha256').update(req.file.buffer).digest('hex');
-        const link = `https://linkproof.co/proof/${hash}`;
+        const link = "https://linkproof.co/proof/" + hash;
         res.json({ link: link });
     } catch (error) {
         console.error("Error processing file upload:", error);
