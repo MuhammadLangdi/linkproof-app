@@ -24,7 +24,7 @@ app.get('/', (req, res) => {
         </head>
         <body class="bg-gray-900 text-white font-sans flex flex-col items-center justify-center min-h-screen">
             <div class="bg-gray-800 p-8 rounded-xl shadow-lg w-11/12 max-w-2xl text-center">
-                <h1 class="text-4xl md:text-5xl font-bold mb-4">LinkProof.co</h1>
+                <h1 class="text-4xl md:text-5xl font-bold mb-4">Link Proof</h1>
                 <p class="text-gray-400 mb-6">Future-proof your content. Get a permanent public receipt for your work.</p>
 
                 <form id="uploadForm" class="flex flex-col items-center mb-6">
@@ -42,7 +42,7 @@ app.get('/', (req, res) => {
                 <p id="responseMessage" class="text-gray-300 text-sm"></p>
                 <a id="linkProof" href="#" class="text-blue-400 hover:text-blue-300 transition-colors duration-200 hidden mt-4"></a>
 
-                <footer class="mt-8 text-center text-sm text-gray-500">
+                <footer class="mt-8 text-center text-sm text-white-500">
                     <p>&copy; 2025 All rights reserved to Muhammad Langdi.</p>
                 </footer>
             </div>
@@ -185,3 +185,4 @@ app.use((req, res, next) => {
 
 // This tells Vercel to use your Express app for all requests.
 module.exports = app;
+
