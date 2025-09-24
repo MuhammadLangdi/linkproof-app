@@ -3,9 +3,9 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const crypto = require('crypto');
-const { MongoClient } = require('mongodb'); 
-const bcrypt = require('bcrypt'); // NEW: For password hashing
-const session = require('express-session'); // NEW: For managing user sessions
+const { MongoClient, ObjectId } = require('mongodb'); // ADDED: ObjectId to find user
+const bcrypt = require('bcrypt');
+const session = require('express-session');
 const app = express();
 const upload = multer({
     storage: multer.memoryStorage(),
@@ -14,11 +14,11 @@ const upload = multer({
     }
 });
 
-// NEW: Set up express-session middleware
+// Set up express-session middleware
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(session({
-    secret: 'a-strong-secret-key', // You should change this to a random string
+    secret: 'a-strong-secret-key',
     resave: false,
     saveUninitialized: true
 }));
@@ -58,6 +58,12 @@ app.get('/', (req, res) => {
                 </div>
                 
                 <hr class="border-gray-700 my-8">
+
+                <div id="dashboardSection" class="hidden">
+                    <h2 class="text-xl font-bold mb-4">Your Dashboard</h2>
+                    <ul id="receiptsList" class="text-left w-full max-w-lg mb-4"></ul>
+                    <hr class="border-gray-700 my-8">
+                </div>
 
                 <div id="createProofSection" class="mb-8 hidden">
                     <h2 class="text-xl font-bold mb-4">Create a new LinkProof</h2>
@@ -99,9 +105,35 @@ app.get('/', (req, res) => {
                 // Show/hide sections based on login state
                 function showMainContent() {
                     document.getElementById('authSection').classList.add('hidden');
+                    document.getElementById('dashboardSection').classList.remove('hidden');
                     document.getElementById('createProofSection').classList.remove('hidden');
                     document.querySelector('#createProofSection + hr').classList.remove('hidden');
                     document.getElementById('verifyProofSection').classList.remove('hidden');
+                    fetchReceipts(); // Fetch and display user's receipts
+                }
+
+                async function fetchReceipts() {
+                    const receiptsList = document.getElementById('receiptsList');
+                    receiptsList.innerHTML = '<li class="text-center text-gray-400">Loading your receipts...</li>';
+
+                    try {
+                        const response = await fetch('/user-receipts');
+                        const receipts = await response.json();
+
+                        if (receipts.length > 0) {
+                            receiptsList.innerHTML = ''; // Clear loading message
+                            receipts.forEach(receipt => {
+                                const li = document.createElement('li');
+                                li.innerHTML = \`<a href="/proof/\${receipt.hash}" class="text-blue-400 hover:text-blue-300 transition-colors duration-200 break-all">\${receipt.hash.substring(0, 10)}...</a> - \${new Date(receipt.timestamp).toLocaleDateString()}\`;
+                                receiptsList.appendChild(li);
+                            });
+                        } else {
+                            receiptsList.innerHTML = '<li class="text-center text-gray-400">No receipts found. Upload a file to get started!</li>';
+                        }
+                    } catch (error) {
+                        console.error('Error fetching receipts:', error);
+                        receiptsList.innerHTML = '<li class="text-center text-red-400">Failed to load receipts.</li>';
+                    }
                 }
 
                 // Auth form logic
@@ -188,6 +220,7 @@ app.get('/', (req, res) => {
                             linkProof.href = result.link;
                             linkProof.textContent = result.link;
                             linkProof.classList.remove('hidden');
+                            fetchReceipts(); // Refresh the list
                         } else {
                             responseMessage.textContent = 'An error occurred during upload.';
                             responseMessage.classList.remove('text-yellow-400');
@@ -257,7 +290,7 @@ app.get('/', (req, res) => {
     res.send(htmlContent);
 });
 
-// NEW: Signup endpoint
+// Signup endpoint
 app.post('/signup', async (req, res) => {
     const { username, password } = req.body;
 
@@ -286,7 +319,7 @@ app.post('/signup', async (req, res) => {
     }
 });
 
-// NEW: Login endpoint
+// Login endpoint
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
 
@@ -304,11 +337,31 @@ app.post('/login', async (req, res) => {
             return res.status(401).json({ message: 'Invalid username or password.' });
         }
 
-        req.session.userId = user._id;
+        req.session.userId = user._id; // Store user ID in the session
         res.status(200).json({ message: 'Logged in successfully!', user: { username: user.username } });
     } catch (error) {
         console.error("Error during login:", error);
         res.status(500).json({ message: 'An internal error occurred.' });
+    } finally {
+        await client.close();
+    }
+});
+
+// ADDED: Endpoint to get user-specific receipts
+app.get('/user-receipts', async (req, res) => {
+    // Check if the user is logged in
+    if (!req.session.userId) {
+        return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    try {
+        await client.connect();
+        const receiptsCollection = client.db(dbName).collection('receipts');
+        const userReceipts = await receiptsCollection.find({ userId: new ObjectId(req.session.userId) }).toArray();
+        res.json(userReceipts);
+    } catch (error) {
+        console.error("Error fetching user receipts:", error);
+        res.status(500).json({ message: "An error occurred." });
     } finally {
         await client.close();
     }
@@ -320,6 +373,11 @@ app.post('/upload', upload.single('myFile'), async (req, res) => {
         return res.status(400).send('No file uploaded.');
     }
 
+    // NEW: Check if the user is logged in
+    if (!req.session.userId) {
+        return res.status(401).json({ message: 'You must be logged in to create a receipt.' });
+    }
+
     try {
         await client.connect(); 
         const hash = crypto.createHash('sha256').update(req.file.buffer).digest('hex');
@@ -328,7 +386,8 @@ app.post('/upload', upload.single('myFile'), async (req, res) => {
         const receiptsCollection = database.collection("receipts");
         const receiptDocument = {
             hash: hash,
-            timestamp: new Date()
+            timestamp: new Date(),
+            userId: new ObjectId(req.session.userId) // ADDED: Link the receipt to the user
         };
         await receiptsCollection.insertOne(receiptDocument);
 
@@ -387,24 +446,24 @@ app.get('/proof/:hash', async (req, res) => {
                 <script src="https://cdn.tailwindcss.com"></script>
             </head>
             <body class="bg-gray-900 text-white font-sans flex flex-col items-center justify-center min-h-screen">
-                <div class="bg-gray-800 p-8 rounded-xl shadow-lg w-11/12 max-w-2xl text-center">
-                    <h1 class="text-4xl font-bold mb-4 text-green-400">Digital Receipt Confirmed</h1>
-                    <p class="text-gray-300 text-lg mb-6">This URL confirms the existence of a digital asset with the following unique digital fingerprint.</p>
-                    <div class="bg-gray-900 p-4 rounded-lg break-words">
-                        <p class="text-green-500 font-mono text-sm">${hash}</p>
+                    <div class="bg-gray-800 p-8 rounded-xl shadow-lg w-11/12 max-w-2xl text-center">
+                        <h1 class="text-4xl font-bold mb-4 text-green-400">Digital Receipt Confirmed</h1>
+                        <p class="text-gray-300 text-lg mb-6">This URL confirms the existence of a digital asset with the following unique digital fingerprint.</p>
+                        <div class="bg-gray-900 p-4 rounded-lg break-words">
+                            <p class="text-green-500 font-mono text-sm">${hash}</p>
+                        </div>
+                        <p class="text-gray-400 text-sm mt-4">The integrity of the file can be verified by comparing its hash with this URL.</p>
+                        <p class="text-gray-400 text-sm mt-4">This receipt was created on **${receipt.timestamp.toUTCString()}**.</p>
+                        <div class="mt-8">
+                            <a href="https://www.linkproof.co" class="text-blue-400 hover:text-blue-300 transition-colors duration-200">Go back to LinkProof.co</a>
+                        </div>
                     </div>
-                    <p class="text-gray-400 text-sm mt-4">The integrity of the file can be verified by comparing its hash with this URL.</p>
-                    <p class="text-gray-400 text-sm mt-4">This receipt was created on **${receipt.timestamp.toUTCString()}**.</p>
-                    <div class="mt-8">
-                        <a href="https://www.linkproof.co" class="text-blue-400 hover:text-blue-300 transition-colors duration-200">Go back to LinkProof.co</a>
-                    </div>
-                </div>
-                <footer class="mt-12 text-center text-sm text-gray-500">
-                    <p>&copy; 2025 All rights reserved to Muhammad Langdi.</p>
-                </footer>
-            </body>
-            </html>
-        `;
+                    <footer class="mt-12 text-center text-sm text-gray-500">
+                        <p>&copy; 2025 All rights reserved to Muhammad Langdi.</p>
+                    </footer>
+                </body>
+                </html>
+            `;
         res.send(htmlContent);
     } catch (error) {
         console.error("Error processing proof request:", error);
