@@ -1,16 +1,17 @@
 {
-  "name": "linkproof",
+  "name": "linkproof-co",
   "version": "1.0.0",
-  "description": "A web app for creating permanent digital receipts.",
+  "description": "A digital proof of existence application.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
-    "express": "^4.19.2",
-    "mongodb": "^6.7.0",
-    "multer": "^1.4.5-lts.1",
     "bcrypt": "^5.1.1",
-    "express-session": "^1.18.0"
+    "express": "^4.19.2",
+    "express-session": "^1.18.0",
+    "mongodb": "^6.8.0",
+    "multer": "^1.4.5-lts.1",
+    "nodemailer": "^6.9.14"
   }
 }
