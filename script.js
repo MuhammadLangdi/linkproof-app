@@ -1,4 +1,4 @@
-                     script.js file
+// server.js file 
 
 document.addEventListener('DOMContentLoaded', () => {
 
