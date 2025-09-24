@@ -173,7 +173,6 @@ app.get('/', (req, res) => {
                             authMessage.classList.add('text-green-400');
                             if (endpoint === '/login') showMainContent();
                             else if (endpoint === '/signup') {
-                                // Clear inputs after successful signup
                                 usernameInput.value = '';
                                 passwordInput.value = '';
                                 authMessage.textContent = 'Sign up successful! Please log in now.';
@@ -227,7 +226,10 @@ app.get('/', (req, res) => {
                             linkProof.href = result.link;
                             linkProof.textContent = result.link;
                             linkProof.classList.remove('hidden');
-                            fetchReceipts(); // Refresh the list
+                            // Use setTimeout to allow the UI to update before navigating
+                            setTimeout(() => {
+                                window.location.href = result.link; // Redirect to the new proof page
+                            }, 500);
                         } else {
                             responseMessage.textContent = 'An error occurred during upload.';
                             responseMessage.classList.remove('text-yellow-400');
@@ -300,23 +302,15 @@ app.get('/', (req, res) => {
 // Signup endpoint
 app.post('/signup', async (req, res) => {
     const { username, password } = req.body;
-
-    if (!username || !password) {
-        return res.status(400).json({ message: 'Username and password are required.' });
-    }
-
     try {
         await client.connect();
         const usersCollection = client.db(dbName).collection('users');
-
         const existingUser = await usersCollection.findOne({ username });
         if (existingUser) {
             return res.status(409).json({ message: 'Username already exists.' });
         }
-
         const hashedPassword = await bcrypt.hash(password, 10);
         await usersCollection.insertOne({ username, password: hashedPassword });
-
         res.status(201).json({ message: 'User created successfully! You can now log in.' });
     } catch (error) {
         console.error("Error during signup:", error);
@@ -329,22 +323,18 @@ app.post('/signup', async (req, res) => {
 // Login endpoint
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
-
     try {
         await client.connect();
         const usersCollection = client.db(dbName).collection('users');
-
         const user = await usersCollection.findOne({ username });
         if (!user) {
             return res.status(401).json({ message: 'Invalid username or password.' });
         }
-
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
             return res.status(401).json({ message: 'Invalid username or password.' });
         }
-
-        req.session.userId = user._id; // Store user ID in the session
+        req.session.userId = user._id;
         res.status(200).json({ message: 'Logged in successfully!', user: { username: user.username } });
     } catch (error) {
         console.error("Error during login:", error);
@@ -356,11 +346,9 @@ app.post('/login', async (req, res) => {
 
 // Endpoint to get user-specific receipts
 app.get('/user-receipts', async (req, res) => {
-    // Check if the user is logged in
     if (!req.session.userId) {
         return res.status(401).json({ message: 'Unauthorized' });
     }
-
     try {
         await client.connect();
         const receiptsCollection = client.db(dbName).collection('receipts');
@@ -379,25 +367,20 @@ app.post('/upload', upload.single('myFile'), async (req, res) => {
     if (!req.file) {
         return res.status(400).send('No file uploaded.');
     }
-
-    // NEW: Check if the user is logged in
     if (!req.session.userId) {
         return res.status(401).json({ message: 'You must be logged in to create a receipt.' });
     }
-
     try {
         await client.connect();
         const hash = crypto.createHash('sha256').update(req.file.buffer).digest('hex');
-
         const database = client.db(dbName);
         const receiptsCollection = database.collection("receipts");
         const receiptDocument = {
             hash: hash,
             timestamp: new Date(),
-            userId: new ObjectId(req.session.userId) // ADDED: Link the receipt to the user
+            userId: new ObjectId(req.session.userId)
         };
         await receiptsCollection.insertOne(receiptDocument);
-
         const link = "https://linkproof.co/proof/" + hash;
         res.json({ link: link });
     } catch (error) {
@@ -411,13 +394,11 @@ app.post('/upload', upload.single('myFile'), async (req, res) => {
 // This handles requests for the proof pages (e.g., /proof/c207e5...)
 app.get('/proof/:hash', async (req, res) => {
     const hash = req.params.hash;
-
     try {
         await client.connect();
         const database = client.db(dbName);
         const receiptsCollection = database.collection("receipts");
         const receipt = await receiptsCollection.findOne({ hash: hash });
-
         if (!receipt) {
             return res.status(404).send(`
                 <!DOCTYPE html>
@@ -442,7 +423,6 @@ app.get('/proof/:hash', async (req, res) => {
                 </html>
             `);
         }
-
         const htmlContent = `
             <!DOCTYPE html>
             <html lang="en">
