@@ -75,7 +75,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const authMessage = document.getElementById('authMessage');
 
     // Add event listener to the entire authentication form.
-    // This handles both signup and login button clicks.
     authForm.addEventListener('submit', async (e) => {
         e.preventDefault(); // Prevents the page from reloading on form submission.
 
@@ -111,6 +110,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const responseMessage = document.getElementById('responseMessage');
     const linkProof = document.getElementById('linkProof');
     const emailInput = document.getElementById('email');
+    const FILE_SIZE_LIMIT_MB = 50;
 
     // Handles the file upload process.
     uploadForm.addEventListener('submit', async (e) => {
@@ -124,13 +124,19 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        const fileSizeMB = file.size / (1024 * 1024);
+        if (fileSizeMB > FILE_SIZE_LIMIT_MB) {
+            responseMessage.textContent = `File size exceeds the ${FILE_SIZE_LIMIT_MB} MB limit.`;
+            responseMessage.style.color = 'rgb(239, 68, 68)';
+            return;
+        }
+
         responseMessage.textContent = 'Uploading...';
         responseMessage.style.color = 'rgb(147, 197, 253)';
         linkProof.classList.add('hidden');
 
         const formData = new FormData();
         formData.append('myFile', file);
-        formData.append('filename', file.name);
         formData.append('email', email);
 
         try {
@@ -140,6 +146,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             const result = await response.json();
+            
             if (response.ok) {
                 responseMessage.textContent = 'File uploaded successfully!';
                 responseMessage.style.color = 'rgb(34, 197, 94)';
@@ -147,6 +154,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 linkProof.textContent = 'View your digital receipt';
                 linkProof.classList.remove('hidden');
                 fetchUserReceipts();
+            } else if (response.status === 409) {
+                // Handle the case where the file has already been uploaded
+                responseMessage.textContent = result.message;
+                responseMessage.style.color = 'rgb(255, 193, 7)';
+                if (result.link) {
+                    linkProof.href = result.link;
+                    linkProof.textContent = 'View the existing digital receipt';
+                    linkProof.classList.remove('hidden');
+                }
             } else {
                 responseMessage.textContent = result.message || 'An error occurred during upload.';
                 responseMessage.style.color = 'rgb(239, 68, 68)';
