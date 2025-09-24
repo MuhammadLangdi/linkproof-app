@@ -76,6 +76,7 @@ app.get('/', (req, res) => {
                 <hr class="border-gray-700 my-8">
 
                 <div id="mainContent" class="hidden">
+                    <p id="loggedInStatus" class="text-gray-400 text-sm mb-4"></p>
                     <div id="dashboardSection">
                         <h2 class="text-xl font-bold mb-4">Your Dashboard</h2>
                         <ul id="receiptsList" class="text-left w-full max-w-lg mb-4"></ul>
@@ -122,9 +123,10 @@ app.get('/', (req, res) => {
 
             <script>
                 // Show/hide sections based on login state
-                function showMainContent() {
+                function showMainContent(username) {
                     document.getElementById('authSection').classList.add('hidden');
                     document.getElementById('mainContent').classList.remove('hidden');
+                    document.getElementById('loggedInStatus').textContent = \`You are logged in as: \${username}\`;
                     fetchReceipts(); // Fetch and display user's receipts
                 }
 
@@ -146,7 +148,19 @@ app.get('/', (req, res) => {
                             receiptsList.innerHTML = ''; // Clear loading message
                             receipts.forEach(receipt => {
                                 const li = document.createElement('li');
-                                li.innerHTML = \`<a href="/proof/\${receipt.hash}" class="text-blue-400 hover:text-blue-300 transition-colors duration-200 break-all">\${receipt.hash.substring(0, 10)}...</a> - \${new Date(receipt.timestamp).toLocaleDateString()}\`;
+                                li.className = 'flex items-center justify-between py-2';
+                                li.innerHTML = \`
+                                    <span class="flex items-center space-x-2">
+                                        <a href="/proof/\${receipt.hash}" class="text-blue-400 hover:text-blue-300 transition-colors duration-200 font-mono">\${receipt.hash.substring(0, 10)}...</a>
+                                        <button onclick="copyHashToClipboard('\${receipt.hash}')" class="text-gray-500 hover:text-white focus:outline-none">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                                <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
+                                                <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
+                                            </svg>
+                                        </button>
+                                    </span>
+                                    <span class="text-gray-400 text-sm">\${new Date(receipt.timestamp).toLocaleDateString()}</span>
+                                \`;
                                 receiptsList.appendChild(li);
                             });
                         } else {
@@ -156,6 +170,14 @@ app.get('/', (req, res) => {
                         console.error('Error fetching receipts:', error);
                         receiptsList.innerHTML = '<li class="text-center text-red-400">Failed to load receipts.</li>';
                     }
+                }
+
+                function copyHashToClipboard(hash) {
+                    navigator.clipboard.writeText(hash).then(() => {
+                        alert('Hash copied to clipboard!');
+                    }, (err) => {
+                        console.error('Could not copy text: ', err);
+                    });
                 }
 
                 // Auth form logic
@@ -192,7 +214,7 @@ app.get('/', (req, res) => {
                             authMessage.textContent = result.message;
                             authMessage.classList.remove('text-yellow-400');
                             authMessage.classList.add('text-green-400');
-                            if (endpoint === '/login') showMainContent();
+                            if (endpoint === '/login') showMainContent(result.user.username);
                             else if (endpoint === '/signup') {
                                 usernameInput.value = '';
                                 passwordInput.value = '';
@@ -247,7 +269,7 @@ app.get('/', (req, res) => {
                             linkProof.href = result.link;
                             linkProof.textContent = result.link;
                             linkProof.classList.remove('hidden');
-                            window.location.href = result.link; // Redirect to the new proof page
+                            window.location.href = result.link;
                         } else {
                             responseMessage.textContent = result.message || 'An error occurred during upload.';
                             responseMessage.classList.remove('text-yellow-400');
