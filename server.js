@@ -331,7 +331,7 @@ app.get('/', (req, res) => {
                         verifyMessage.textContent = 'An error occurred during verification.';
                         verifyMessage.classList.remove('text-yellow-400');
                         verifyMessage.classList.add('text-red-400');
-                    }
+                        }
                 });
             </script>
         </body>
@@ -405,15 +405,15 @@ app.get('/user-receipts', async (req, res) => {
 });
 
 // This is the upload endpoint.
-app.post('/upload', upload.fields([{ name: 'myFile', maxCount: 1 }, { name: 'filename', maxCount: 1 }]), async (req, res) => {
-    if (!req.files || !req.files.myFile || !req.files.filename) {
-        return res.status(400).send('No file or filename uploaded.');
+app.post('/upload', upload.single('myFile'), async (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ message: 'No file uploaded.' });
     }
     if (!req.session.userId) {
         return res.status(401).json({ message: 'You must be logged in to create a receipt.' });
     }
-    const file = req.files.myFile[0];
-    const filename = req.files.filename[0].buffer.toString();
+    const file = req.file;
+    const filename = req.body.filename; // Corrected line
     try {
         const hash = crypto.createHash('sha256').update(file.buffer).digest('hex');
         const receiptsCollection = getDb().collection("receipts");
@@ -428,7 +428,7 @@ app.post('/upload', upload.fields([{ name: 'myFile', maxCount: 1 }, { name: 'fil
         res.json({ link: link });
     } catch (error) {
         console.error("Error processing file upload:", error);
-        res.status(500).send("An error occurred during upload.");
+        res.status(500).json({ message: 'An error occurred during upload.' });
     }
 });
 
