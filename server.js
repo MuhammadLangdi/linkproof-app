@@ -406,6 +406,28 @@ app.post('/upload', upload.single('myFile'), async (req, res) => {
     }
 });
 
+// This is the verify endpoint.
+app.post('/verify', upload.single('myFile'), async (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ message: 'No file uploaded.' });
+    }
+
+    try {
+        const hash = crypto.createHash('sha256').update(req.file.buffer).digest('hex');
+        const receiptsCollection = getDb().collection("receipts");
+        const receipt = await receiptsCollection.findOne({ hash: hash });
+
+        if (receipt) {
+            res.json({ exists: true });
+        } else {
+            res.json({ exists: false });
+        }
+    } catch (error) {
+        console.error("Error processing file verification:", error);
+        res.status(500).json({ message: 'An error occurred during verification.' });
+    }
+});
+
 // This handles requests for the proof pages (e.g., /proof/c207e5...)
 app.get('/proof/:hash', async (req, res) => {
     const hash = req.params.hash;
