@@ -9,10 +9,12 @@ const session = require('express-session');
 const nodemailer = require('nodemailer');
 const MongoStore = require('connect-mongo');
 const app = express();
+
+// This sets the file size limit to 50 MB.
 const upload = multer({
     storage: multer.memoryStorage(),
     limits: {
-        fileSize: 5 * 1024 * 1024 // 5 MB in bytes
+        fileSize: 50 * 1024 * 1024 // 50 MB in bytes
     }
 });
 
