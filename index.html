@@ -1,9 +1,89 @@
-<form id="uploadForm">
-    <div id="drop-zone" class="p-8 border-2 border-dashed rounded-lg text-center transition-colors duration-200">
-        <p class="text-gray-400">Drag & Drop a file here or</p>
-        <button type="button" id="file-upload-button" class="mt-2 bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition-colors duration-200">
-            Click to upload
-        </button>
-        <input type="file" id="file-upload" class="hidden">
-    </div>
-    </form>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LinkProof.co</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white font-sans flex flex-col items-center justify-center min-h-screen p-4">
+    <header class="text-center mb-10">
+        <h1 class="text-6xl font-extrabold text-blue-500">LinkProof.co</h1>
+        <p class="text-xl text-gray-400 mt-2">Future-proof your content. Get a permanent public receipt for your work.</p>
+    </header>
+
+    <section id="authSection" class="bg-gray-800 p-8 rounded-xl shadow-lg w-full max-w-md">
+        <h2 class="text-2xl font-semibold text-center mb-6 text-gray-200">Account</h2>
+        
+        <form id="authForm" class="space-y-4">
+            <input type="text" id="username" placeholder="Username" required class="w-full px-4 py-3 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-200">
+            <input type="password" id="password" placeholder="Password" required class="w-full px-4 py-3 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-200">
+            <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
+                <button type="submit" id="signupBtn" class="w-full sm:w-1/2 bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-lg transition-colors duration-200">Sign Up</button>
+                <button type="submit" id="loginBtn" class="w-full sm:w-1/2 bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg transition-colors duration-200">Log In</button>
+            </div>
+            <p id="authMessage" class="text-center text-sm font-medium mt-4"></p>
+        </form>
+    </section>
+
+    <section id="mainContent" class="hidden w-full max-w-4xl">
+        <div class="flex justify-between items-center mb-6">
+            <h2 id="loggedInStatus" class="text-2xl font-semibold text-gray-200"></h2>
+            <button id="logoutBtn" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-200 text-sm">Log Out</button>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div class="bg-gray-800 p-8 rounded-xl shadow-lg">
+                <h3 class="text-xl font-semibold text-center mb-6 text-gray-200">Upload a File</h3>
+                <form id="uploadForm">
+                    <input type="text" id="filename" placeholder="Optional filename" class="w-full px-4 py-3 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-200 mb-4">
+                    <input type="email" id="email" placeholder="Optional email address for receipt" class="w-full px-4 py-3 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-200 mb-4">
+                    <div id="drop-zone" class="p-8 border-2 border-dashed border-gray-600 rounded-lg text-center transition-colors duration-200 hover:border-blue-500">
+                        <p class="text-gray-400">Drag & Drop a file here or</p>
+                        <button type="button" id="file-upload-button" class="mt-2 bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-200">
+                            Click to upload
+                        </button>
+                        <input type="file" id="file-upload" class="hidden">
+                    </div>
+                    <button type="submit" class="w-full mt-4 bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg transition-colors duration-200">Create Digital Receipt</button>
+                    <p id="responseMessage" class="text-center text-sm font-medium mt-4"></p>
+                    <a id="linkProof" href="#" target="_blank" class="hidden text-center block mt-4 text-blue-400 hover:underline text-sm"></a>
+                </form>
+            </div>
+            
+            <div class="bg-gray-800 p-8 rounded-xl shadow-lg">
+                <h3 class="text-xl font-semibold text-center mb-6 text-gray-200">Verify a File's Existence</h3>
+                <form id="verifyForm">
+                    <div id="verify-drop-zone" class="p-8 border-2 border-dashed border-gray-600 rounded-lg text-center transition-colors duration-200 hover:border-green-500">
+                        <p class="text-gray-400">Drag & Drop a file here or</p>
+                        <button type="button" id="verify-file-upload-button" class="mt-2 bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-200">
+                            Click to verify
+                        </button>
+                        <input type="file" id="verify-file-upload" class="hidden">
+                    </div>
+                    <button type="submit" class="w-full mt-4 bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-lg transition-colors duration-200">Verify File</button>
+                    <p id="verifyMessage" class="text-center text-sm font-medium mt-4"></p>
+                </form>
+            </div>
+        </div>
+
+        <div class="bg-gray-800 p-8 rounded-xl shadow-lg mt-8">
+            <h3 class="text-xl font-semibold text-gray-200 mb-4">Your Recent Receipts</h3>
+            <ul id="receiptsList" class="space-y-2">
+                </ul>
+        </div>
+    </section>
+
+    <footer class="mt-12 text-center text-sm text-gray-500">
+        <p>&copy; 2025 All rights reserved to Muhammad Langdi.</p>
+    </footer>
+
+    <script src="/script.js"></script>
+
+</body>
+</html>
