@@ -24,12 +24,14 @@ app.use(session({
     saveUninitialized: true
 }));
 
-// NEW: Serve static files from the 'public' directory
-app.use(express.static('public'));
-
-// NEW: Redirect root URL to index.html
+// NEW: Serve index.html from the root directory
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// NEW: Serve script.js from the root directory
+app.get('/script.js', (req, res) => {
+    res.sendFile(path.join(__dirname, 'script.js'));
 });
 
 // Database connection setup
