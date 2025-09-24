@@ -1,4 +1,4 @@
-// server.js file 
+// Ensure this code is placed in your script.js file.
 
 document.addEventListener('DOMContentLoaded', () => {
 
@@ -237,4 +237,3 @@ document.addEventListener('DOMContentLoaded', () => {
         verifyFileInput.click();
     });
 });
-
