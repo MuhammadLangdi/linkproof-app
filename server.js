@@ -27,6 +27,11 @@ app.use(session({
 // NEW: Serve static files from the 'public' directory
 app.use(express.static('public'));
 
+// NEW: Redirect root URL to index.html
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 // Database connection setup
 const uri = process.env.MONGODB_URI;
 const client = new MongoClient(uri);
@@ -80,9 +85,6 @@ run().catch(console.dir);
 function getDb() {
     return client.db(dbName);
 }
-
-// REMOVED: app.get('/') route is no longer needed
-// The express.static('public') line handles serving index.html automatically
 
 // Signup endpoint
 app.post('/signup', async (req, res) => {
