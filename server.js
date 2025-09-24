@@ -17,7 +17,6 @@ const uri = process.env.MONGODB_URI;
 const client = new MongoClient(uri);
 const dbName = "linkproof-db";
 
-
 // This serves your front-end HTML.
 app.get('/', (req, res) => {
     const htmlContent = `
@@ -34,29 +33,46 @@ app.get('/', (req, res) => {
                 <h1 class="text-4xl md:text-5xl font-bold mb-4">LinkProof.co</h1>
                 <p class="text-gray-400 mb-6">Future-proof your content. Get a permanent public receipt for your work.</p>
 
-                <form id="uploadForm" class="flex flex-col items-center mb-6">
-                    <label for="file-upload" class="cursor-pointer">
-                        <div class="border-2 border-dashed border-gray-600 rounded-lg p-12 w-full max-w-lg mb-4 hover:border-blue-500 transition-colors duration-200">
-                            <p class="text-gray-400 mb-2">Drag & Drop a file here or</p>
-                            <button type="button" class="bg-gray-700 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors duration-200">Click to upload</button>
-                            <input id="file-upload" name="myFile" type="file" class="hidden" />
-                        </div>
-                    </label>
-                </form>
+                <div id="createProofSection" class="mb-8">
+                    <h2 class="text-xl font-bold mb-4">Create a new LinkProof</h2>
+                    <form id="uploadForm" class="flex flex-col items-center mb-6">
+                        <label for="file-upload" class="cursor-pointer">
+                            <div class="border-2 border-dashed border-gray-600 rounded-lg p-12 w-full max-w-lg mb-4 hover:border-blue-500 transition-colors duration-200">
+                                <p class="text-gray-400 mb-2">Drag & Drop a file here or</p>
+                                <button type="button" class="bg-gray-700 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors duration-200">Click to upload</button>
+                                <input id="file-upload" name="myFile" type="file" class="hidden" />
+                            </div>
+                        </label>
+                    </form>
+                    <p id="responseMessage" class="text-gray-300 text-sm"></p>
+                    <a id="linkProof" href="#" class="text-blue-400 hover:text-blue-300 transition-colors duration-200 hidden mt-4"></a>
+                </div>
 
-                <p class="text-gray-400 text-sm mt-2">Maximum file size is 5MB.</p>
+                <hr class="border-gray-700 my-8">
 
-                <p id="responseMessage" class="text-gray-300 text-sm"></p>
-                <a id="linkProof" href="#" class="text-blue-400 hover:text-blue-300 transition-colors duration-200 hidden mt-4"></a>
-
-                <footer class="mt-8 text-center text-sm text-gray-500">
-                    <p>&copy; 2025 All rights reserved to Muhammad Langdi.</p>
-                </footer>
+                <div id="verifyProofSection">
+                    <h2 class="text-xl font-bold mb-4">Verify a file's existence</h2>
+                    <form id="verifyForm" class="flex flex-col items-center mb-6">
+                        <label for="verify-file-upload" class="cursor-pointer">
+                            <div class="border-2 border-dashed border-gray-600 rounded-lg p-12 w-full max-w-lg mb-4 hover:border-blue-500 transition-colors duration-200">
+                                <p class="text-gray-400 mb-2">Drag & Drop a file here or</p>
+                                <button type="button" class="bg-gray-700 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors duration-200">Click to verify</button>
+                                <input id="verify-file-upload" name="myFile" type="file" class="hidden" />
+                            </div>
+                        </label>
+                    </form>
+                    <p id="verifyMessage" class="text-gray-300 text-sm"></p>
+                </div>
             </div>
 
+            <footer class="mt-8 text-center text-sm text-gray-500">
+                <p>&copy; 2025 All rights reserved to Muhammad Langdi.</p>
+            </footer>
+
             <script>
+                // Create Proof
                 const fileInput = document.getElementById('file-upload');
-                const uploadButton = document.querySelector('button');
+                const uploadButton = document.querySelector('#createProofSection button');
                 const responseMessage = document.getElementById('responseMessage');
                 const linkProof = document.getElementById('linkProof');
 
@@ -66,9 +82,7 @@ app.get('/', (req, res) => {
 
                 fileInput.addEventListener('change', async (event) => {
                     const file = event.target.files[0];
-                    if (!file) {
-                        return;
-                    }
+                    if (!file) return;
 
                     responseMessage.textContent = 'Uploading...';
                     responseMessage.classList.add('text-yellow-400');
@@ -88,6 +102,7 @@ app.get('/', (req, res) => {
                         if (response.ok) {
                             responseMessage.textContent = 'Your LinkProof is:';
                             responseMessage.classList.remove('text-yellow-400');
+                            responseMessage.classList.remove('text-red-400');
                             linkProof.href = result.link;
                             linkProof.textContent = result.link;
                             linkProof.classList.remove('hidden');
@@ -101,6 +116,56 @@ app.get('/', (req, res) => {
                         responseMessage.textContent = 'An error occurred during upload.';
                         responseMessage.classList.remove('text-yellow-400');
                         responseMessage.classList.add('text-red-400');
+                    }
+                });
+
+                // Verify Proof
+                const verifyFileInput = document.getElementById('verify-file-upload');
+                const verifyButton = document.querySelector('#verifyProofSection button');
+                const verifyMessage = document.getElementById('verifyMessage');
+
+                verifyButton.addEventListener('click', () => {
+                    verifyFileInput.click();
+                });
+
+                verifyFileInput.addEventListener('change', async (event) => {
+                    const file = event.target.files[0];
+                    if (!file) return;
+
+                    verifyMessage.textContent = 'Verifying...';
+                    verifyMessage.classList.add('text-yellow-400');
+
+                    const formData = new FormData();
+                    formData.append('myFile', file);
+
+                    try {
+                        const response = await fetch('/verify', {
+                            method: 'POST',
+                            body: formData,
+                        });
+
+                        const result = await response.json();
+
+                        if (response.ok) {
+                            if (result.exists) {
+                                verifyMessage.textContent = 'File verified! A digital receipt for this file exists.';
+                                verifyMessage.classList.remove('text-yellow-400');
+                                verifyMessage.classList.add('text-green-400');
+                            } else {
+                                verifyMessage.textContent = 'Verification failed. No digital receipt found for this file.';
+                                verifyMessage.classList.remove('text-yellow-400');
+                                verifyMessage.classList.add('text-red-400');
+                            }
+                        } else {
+                            verifyMessage.textContent = 'An error occurred during verification.';
+                            verifyMessage.classList.remove('text-yellow-400');
+                            verifyMessage.classList.add('text-red-400');
+                        }
+                    } catch (error) {
+                        console.error('Error:', error);
+                        verifyMessage.textContent = 'An error occurred during verification.';
+                        verifyMessage.classList.remove('text-yellow-400');
+                        verifyMessage.classList.add('text-red-400');
                     }
                 });
             </script>
@@ -117,10 +182,9 @@ app.post('/upload', upload.single('myFile'), async (req, res) => {
     }
 
     try {
-        await client.connect(); // ADDED: Connect to the database
+        await client.connect(); 
         const hash = crypto.createHash('sha256').update(req.file.buffer).digest('hex');
 
-        // Save the hash to the database
         const database = client.db(dbName);
         const receiptsCollection = database.collection("receipts");
         const receiptDocument = {
@@ -135,7 +199,34 @@ app.post('/upload', upload.single('myFile'), async (req, res) => {
         console.error("Error processing file upload:", error);
         res.status(500).send("An error occurred during upload.");
     } finally {
-        await client.close(); // ADDED: Close the connection
+        await client.close();
+    }
+});
+
+// ADDED: New verify endpoint
+app.post('/verify', upload.single('myFile'), async (req, res) => {
+    if (!req.file) {
+        return res.status(400).send('No file uploaded.');
+    }
+
+    try {
+        await client.connect();
+        const hash = crypto.createHash('sha256').update(req.file.buffer).digest('hex');
+
+        const database = client.db(dbName);
+        const receiptsCollection = database.collection("receipts");
+        const receipt = await receiptsCollection.findOne({ hash: hash });
+
+        if (receipt) {
+            res.json({ exists: true, timestamp: receipt.timestamp });
+        } else {
+            res.json({ exists: false });
+        }
+    } catch (error) {
+        console.error("Error processing verification:", error);
+        res.status(500).send("An error occurred during verification.");
+    } finally {
+        await client.close();
     }
 });
 
@@ -144,14 +235,12 @@ app.get('/proof/:hash', async (req, res) => {
     const hash = req.params.hash;
 
     try {
-        await client.connect(); // ADDED: Connect to the database
-        // Check if the hash exists in the database
+        await client.connect(); 
         const database = client.db(dbName);
         const receiptsCollection = database.collection("receipts");
         const receipt = await receiptsCollection.findOne({ hash: hash });
 
         if (!receipt) {
-            // If no receipt is found, show a not-found page
             return res.status(404).send(`
                 <!DOCTYPE html>
                 <html lang="en">
@@ -209,7 +298,7 @@ app.get('/proof/:hash', async (req, res) => {
         console.error("Error processing proof request:", error);
         res.status(500).send("An error occurred.");
     } finally {
-        await client.close(); // ADDED: Close the connection
+        await client.close();
     }
 });
 
