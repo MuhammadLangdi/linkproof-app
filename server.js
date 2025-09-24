@@ -1,252 +1,315 @@
-// This script contains all the client-side logic for LinkProof.co.
-// It handles user authentication (login/signup), file uploads, file verification,
-// and manages the UI to show and hide sections based on login status.
+// This imports all the tools we need for our server.
+const express = require('express');
+const multer = require('multer');
+const path = require('path');
+const crypto = require('crypto');
+const { MongoClient, ObjectId } = require('mongodb');
+const bcrypt = require('bcrypt');
+const session = require('express-session');
+const nodemailer = require('nodemailer');
+const MongoStore = require('connect-mongo');
+const app = express();
 
-document.addEventListener('DOMContentLoaded', () => {
-
-    // Helper function to update the user interface based on login status.
-    function updateUI(isLoggedIn = false, username = '') {
-        const authSection = document.getElementById('authSection');
-        const mainContent = document.getElementById('mainContent');
-        const loggedInStatus = document.getElementById('loggedInStatus');
-
-        if (isLoggedIn) {
-            authSection.classList.add('hidden');
-            mainContent.classList.remove('hidden');
-            loggedInStatus.textContent = `Welcome, ${username}!`;
-        } else {
-            authSection.classList.remove('hidden');
-            mainContent.classList.add('hidden');
-        }
-    }
-
-    // Fetches and displays the user's past receipts.
-    async function fetchUserReceipts() {
-        const receiptsList = document.getElementById('receiptsList');
-        receiptsList.innerHTML = ''; // Clear the list before populating.
-        try {
-            const response = await fetch('/user-receipts');
-            if (response.ok) {
-                const receipts = await response.json();
-                if (receipts.length > 0) {
-                    receipts.forEach(receipt => {
-                        const listItem = document.createElement('li');
-                        const timestamp = new Date(receipt.timestamp).toLocaleString();
-                        listItem.innerHTML = `
-                            <p class="text-sm font-semibold">${receipt.filename || 'Untitled File'}</p>
-                            <p class="text-xs text-gray-500">${timestamp}</p>
-                            <a href="/proof/${receipt.hash}" class="text-blue-400 hover:underline text-xs" target="_blank">View Proof Link</a>
-                        `;
-                        listItem.classList.add('bg-gray-700', 'p-3', 'rounded-lg', 'mb-2');
-                        receiptsList.appendChild(listItem);
-                    });
-                } else {
-                    receiptsList.innerHTML = '<p class="text-gray-400 text-sm">No receipts found.</p>';
-                }
-            }
-        } catch (error) {
-            console.error("Error fetching receipts:", error);
-        }
-    }
-
-    // Checks if a user is already logged in when the page loads.
-    async function checkLoginStatus() {
-        try {
-            const response = await fetch('/user-receipts');
-            if (response.ok) {
-                const userReceipts = await response.json();
-                if (userReceipts) {
-                    updateUI(true, 'User');
-                    fetchUserReceipts();
-                }
-            } else {
-                updateUI(false);
-            }
-        } catch (error) {
-            updateUI(false);
-        }
-    }
-    checkLoginStatus();
-
-    // Get references to HTML elements.
-    const authForm = document.getElementById('authForm');
-    const usernameInput = document.getElementById('username');
-    const passwordInput = document.getElementById('password');
-    const authMessage = document.getElementById('authMessage');
-
-    // Add event listener to the entire authentication form.
-    authForm.addEventListener('submit', async (e) => {
-        e.preventDefault(); // Prevents the page from reloading on form submission.
-
-        const username = usernameInput.value;
-        const password = passwordInput.value;
-        const isSignup = e.submitter.id === 'signupBtn';
-        const url = isSignup ? '/signup' : '/login';
-
-        try {
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password })
-            });
-            const result = await response.json();
-            authMessage.textContent = result.message;
-            authMessage.style.color = response.ok ? 'rgb(34, 197, 94)' : 'rgb(239, 68, 68)';
-
-            if (response.ok && !isSignup) {
-                updateUI(true, username);
-                fetchUserReceipts();
-            }
-        } catch (error) {
-            authMessage.textContent = 'An internal error occurred.';
-            authMessage.style.color = 'rgb(239, 68, 68)';
-            console.error('Fetch error:', error);
-        }
-    });
-
-    // File upload section.
-    const uploadForm = document.getElementById('uploadForm');
-    const fileInput = document.getElementById('file-upload');
-    const responseMessage = document.getElementById('responseMessage');
-    const linkProof = document.getElementById('linkProof');
-    const emailInput = document.getElementById('email');
-    const FILE_SIZE_LIMIT_MB = 50; // Set a client-side limit for better UX.
-
-    // Handles the file upload process.
-    uploadForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-
-        const file = fileInput.files[0];
-        const email = emailInput.value;
-        if (!file) {
-            responseMessage.textContent = 'Please select a file to upload.';
-            responseMessage.style.color = 'rgb(239, 68, 68)';
-            return;
-        }
-
-        // Client-side file size validation.
-        const fileSizeMB = file.size / (1024 * 1024);
-        if (fileSizeMB > FILE_SIZE_LIMIT_MB) {
-            responseMessage.textContent = `File size exceeds the ${FILE_SIZE_LIMIT_MB} MB limit.`;
-            responseMessage.style.color = 'rgb(239, 68, 68)';
-            return;
-        }
-
-        responseMessage.textContent = 'Uploading...';
-        responseMessage.style.color = 'rgb(147, 197, 253)';
-        linkProof.classList.add('hidden');
-
-        const formData = new FormData();
-        formData.append('myFile', file);
-        formData.append('email', email);
-
-        try {
-            const response = await fetch('/upload', {
-                method: 'POST',
-                body: formData
-            });
-
-            const result = await response.json();
-            if (response.ok) {
-                responseMessage.textContent = 'File uploaded successfully!';
-                responseMessage.style.color = 'rgb(34, 197, 94)';
-                linkProof.href = result.link;
-                linkProof.textContent = 'View your digital receipt';
-                linkProof.classList.remove('hidden');
-                fetchUserReceipts();
-            } else {
-                responseMessage.textContent = result.message || 'An error occurred during upload.';
-                responseMessage.style.color = 'rgb(239, 68, 68)';
-            }
-        } catch (error) {
-            responseMessage.textContent = 'An error occurred during upload.';
-            responseMessage.style.color = 'rgb(239, 68, 68)';
-            console.error('Fetch error:', error);
-        }
-    });
-
-    // File verification section.
-    const verifyForm = document.getElementById('verifyForm');
-    const verifyFileInput = document.getElementById('verify-file-upload');
-    const verifyMessage = document.getElementById('verifyMessage');
-
-    // Handles file verification.
-    verifyForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-
-        const file = verifyFileInput.files[0];
-        if (!file) {
-            verifyMessage.textContent = 'Please select a file to verify.';
-            verifyMessage.style.color = 'rgb(239, 68, 68)';
-            return;
-        }
-
-        verifyMessage.textContent = 'Verifying...';
-        verifyMessage.style.color = 'rgb(147, 197, 253)';
-
-        const formData = new FormData();
-        formData.append('myFile', file);
-
-        try {
-            const response = await fetch('/verify', {
-                method: 'POST',
-                body: formData
-            });
-
-            const result = await response.json();
-            if (response.ok) {
-                if (result.exists) {
-                    verifyMessage.textContent = 'This file has a valid digital receipt!';
-                    verifyMessage.style.color = 'rgb(34, 197, 94)';
-                } else {
-                    verifyMessage.textContent = 'No digital receipt found for this file.';
-                    verifyMessage.style.color = 'rgb(239, 68, 68)';
-                }
-            } else {
-                verifyMessage.textContent = 'An error occurred during verification.';
-                verifyMessage.style.color = 'rgb(239, 68, 68)';
-            }
-        } catch (error) {
-            verifyMessage.textContent = 'An error occurred during verification.';
-            verifyMessage.style.color = 'rgb(239, 68, 68)';
-            console.error('Fetch error:', error);
-        }
-    });
-
-    // Logout button.
-    const logoutBtn = document.getElementById('logoutBtn');
-
-    // Handles the logout process.
-    logoutBtn.addEventListener('click', async () => {
-        try {
-            const response = await fetch('/logout', {
-                method: 'POST'
-            });
-            if (response.ok) {
-                window.location.reload();
-            } else {
-                console.error('Logout failed.');
-            }
-        } catch (error) {
-            console.error('Logout error:', error);
-        }
-    });
-
-    // Enables the hidden file input fields to be triggered by button clicks.
-    const fileUploadButton = document.getElementById('file-upload-button');
-    const verifyFileUploadButton = document.getElementById('verify-file-upload-button');
-    const fileInputTrigger = document.getElementById('file-upload');
-    const verifyInputTrigger = document.getElementById('verify-file-upload');
-
-    if (fileUploadButton) {
-        fileUploadButton.addEventListener('click', () => {
-            fileInputTrigger.click();
-        });
-    }
-
-    if (verifyFileUploadButton) {
-        verifyFileUploadButton.addEventListener('click', () => {
-            verifyInputTrigger.click();
-        });
+// This sets the file size limit to 50 MB.
+const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: {
+        fileSize: 50 * 1024 * 1024 // 50 MB in bytes
     }
 });
+
+// Set up express-session middleware with MongoDB store
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
+app.use(session({
+    secret: 'a-strong-secret-key',
+    resave: false,
+    saveUninitialized: true,
+    store: MongoStore.create({
+        mongoUrl: process.env.MONGODB_URI,
+        dbName: 'linkproof-db',
+        collectionName: 'sessions'
+    })
+}));
+
+// Serve index.html from the root directory
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// Serve script.js from the root directory
+app.get('/script.js', (req, res) => {
+    res.sendFile(path.join(__dirname, 'script.js'));
+});
+
+// Database connection setup
+const uri = process.env.MONGODB_URI;
+const client = new MongoClient(uri);
+const dbName = "linkproof-db";
+
+// Nodemailer Transporter
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+    }
+});
+
+// Helper function to send email
+const sendProofEmail = (to, filename, link) => {
+    const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: to,
+        subject: `Your LinkProof Receipt for "${filename}"`,
+        html: `
+            <p>Hello,</p>
+            <p>Your digital receipt has been created successfully on LinkProof.co.</p>
+            <p><strong>File Name:</strong> ${filename}</p>
+            <p><strong>Link to your Proof:</strong> <a href="${link}">${link}</a></p>
+            <p>This is a permanent, public record of your file's existence.</p>
+            <p>Thank you for using LinkProof.co!</p>
+        `
+    };
+
+    transporter.sendMail(mailOptions, (error, info) => {
+        if (error) {
+            return console.log('Error sending email:', error);
+        }
+        console.log('Email sent:', info.response);
+    });
+};
+
+// Connect to the database once when the server starts
+async function run() {
+    try {
+        await client.connect();
+        console.log("Connected to MongoDB successfully!");
+    } catch (e) {
+        console.error("Failed to connect to MongoDB:", e);
+    }
+}
+run().catch(console.dir);
+
+// Helper function to get the database instance
+function getDb() {
+    return client.db(dbName);
+}
+
+// Signup endpoint
+app.post('/signup', async (req, res) => {
+    const { username, password } = req.body;
+    try {
+        const usersCollection = getDb().collection('users');
+        const existingUser = await usersCollection.findOne({ username });
+        if (existingUser) {
+            return res.status(409).json({ message: 'Username already exists.' });
+        }
+        const hashedPassword = await bcrypt.hash(password, 10);
+        await usersCollection.insertOne({ username, password: hashedPassword });
+        res.status(201).json({ message: 'User created successfully! You can now log in.' });
+    } catch (error) {
+        console.error("Error during signup:", error);
+        res.status(500).json({ message: 'An internal error occurred.' });
+    }
+});
+
+// Login endpoint
+app.post('/login', async (req, res) => {
+    const { username, password } = req.body;
+    try {
+        const usersCollection = getDb().collection('users');
+        const user = await usersCollection.findOne({ username });
+        if (!user) {
+            return res.status(401).json({ message: 'Invalid username or password.' });
+        }
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) {
+            return res.status(401).json({ message: 'Invalid username or password.' });
+        }
+        req.session.userId = user._id;
+        res.status(200).json({ message: 'Logged in successfully!', user: { username: user.username } });
+    } catch (error) {
+        console.error("Error during login:", error);
+        res.status(500).json({ message: 'An internal error occurred.' });
+    }
+});
+
+// Logout endpoint
+app.post('/logout', (req, res) => {
+    req.session.destroy(err => {
+        if (err) {
+            return res.status(500).send('Could not log out.');
+        }
+        res.status(200).send('Logged out successfully.');
+    });
+});
+
+// Endpoint to get user-specific receipts
+app.get('/user-receipts', async (req, res) => {
+    if (!req.session.userId) {
+        return res.status(401).json({ message: 'Unauthorized' });
+    }
+    try {
+        const receiptsCollection = getDb().collection('receipts');
+        const userReceipts = await receiptsCollection.find({ userId: new ObjectId(req.session.userId) }).toArray();
+        res.json(userReceipts);
+    } catch (error) {
+        console.error("Error fetching user receipts:", error);
+        res.status(500).json({ message: "An error occurred." });
+    }
+});
+
+// This is the upload endpoint.
+app.post('/upload', upload.single('myFile'), async (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ message: 'No file uploaded.' });
+    }
+    if (!req.session.userId) {
+        return res.status(401).json({ message: 'You must be logged in to create a receipt.' });
+    }
+    const file = req.file;
+    // Get the filename directly from the uploaded file's original name.
+    const filename = file.originalname;
+    const email = req.body.email;
+    try {
+        const hash = crypto.createHash('sha256').update(file.buffer).digest('hex');
+        const receiptsCollection = getDb().collection("receipts");
+        const receiptDocument = {
+            hash: hash,
+            timestamp: new Date(),
+            userId: new ObjectId(req.session.userId),
+            filename: filename,
+            email: email
+        };
+        await receiptsCollection.insertOne(receiptDocument);
+        const link = `https://linkproof.co/proof/${hash}`;
+        res.json({ link: link });
+
+        // Send the email if an email address was provided
+        if (email) {
+            sendProofEmail(email, filename, link);
+        }
+
+    } catch (error) {
+        console.error("Error processing file upload:", error);
+        res.status(500).json({ message: 'An error occurred during upload.' });
+    }
+});
+
+// This is the verify endpoint.
+app.post('/verify', upload.single('myFile'), async (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ message: 'No file uploaded.' });
+    }
+
+    try {
+        const hash = crypto.createHash('sha256').update(req.file.buffer).digest('hex');
+        const receiptsCollection = getDb().collection("receipts");
+        const receipt = await receiptsCollection.findOne({ hash: hash });
+
+        if (receipt) {
+            res.json({ exists: true });
+        } else {
+            res.json({ exists: false });
+        }
+    } catch (error) {
+        console.error("Error processing file verification:", error);
+        res.status(500).json({ message: 'An error occurred during verification.' });
+    }
+});
+
+// This handles requests for the proof pages (e.g., /proof/c207e5...)
+app.get('/proof/:hash', async (req, res) => {
+    const hash = req.params.hash;
+    try {
+        const receiptsCollection = getDb().collection("receipts");
+        const receipt = await receiptsCollection.findOne({ hash: hash });
+        if (!receipt) {
+            return res.status(404).send(`
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>Receipt Not Found</title>
+                    <script src="https://cdn.tailwindcss.com"></script>
+                </head>
+                <body class="bg-gray-900 text-white font-sans flex flex-col items-center justify-center min-h-screen">
+                    <div class="bg-gray-800 p-8 rounded-xl shadow-lg w-11/12 max-w-md text-center">
+                        <h1 class="text-6xl font-bold text-red-500 mb-4">404</h1>
+                        <h2 class="text-2xl font-semibold text-gray-200 mb-2">Receipt Not Found</h2>
+                        <p class="text-gray-400 mb-6">The digital receipt you are looking for does not exist.</p>
+                        <a href="/" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition-colors duration-200">Go to Homepage</a>
+                    </div>
+                    <footer class="mt-12 text-center text-sm text-gray-500">
+                        <p>&copy; 2025 All rights reserved to Muhammad Langdi.</p>
+                    </footer>
+                </body>
+                </html>
+            `);
+        }
+        const htmlContent = `
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>LinkProof - Digital Receipt</title>
+                <script src="https://cdn.tailwindcss.com"></script>
+            </head>
+            <body class="bg-gray-900 text-white font-sans flex flex-col items-center justify-center min-h-screen">
+                <div class="bg-gray-800 p-8 rounded-xl shadow-lg w-11/12 max-w-2xl text-center">
+                    <h1 class="text-4xl font-bold mb-4 text-green-400">Digital Receipt Confirmed</h1>
+                    <p class="text-gray-300 text-lg mb-6">This URL confirms the existence of a digital asset with the following unique digital fingerprint.</p>
+                    <div class="bg-gray-900 p-4 rounded-lg break-words">
+                        <p class="text-green-500 font-mono text-sm">${hash}</p>
+                    </div>
+                    <p class="text-gray-400 text-sm mt-4">The integrity of the file can be verified by comparing its hash with this URL.</p>
+                    <p class="text-gray-400 text-sm mt-4">This receipt was created on **${receipt.timestamp.toUTCString()}**.</p>
+                    <div class="mt-8">
+                        <a href="https://www.linkproof.co" class="text-blue-400 hover:text-blue-300 transition-colors duration-200">Go back to LinkProof.co</a>
+                    </div>
+                </div>
+                <footer class="mt-12 text-center text-sm text-gray-500">
+                    <p>&copy; 2025 All rights reserved to Muhammad Langdi.</p>
+                </footer>
+            </body>
+            </html>
+        `;
+        res.send(htmlContent);
+    } catch (error) {
+        console.error("Error processing proof request:", error);
+        res.status(500).send("An error occurred.");
+    }
+});
+
+// This is the custom 404 page. It must come LAST in your code.
+app.use((req, res, next) => {
+    const htmlContent = `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Page Not Found</title>
+            <script src="https://cdn.tailwindcss.com"></script>
+        </head>
+        <body class="bg-gray-900 text-white font-sans flex flex-col items-center justify-center min-h-screen">
+            <div class="bg-gray-800 p-8 rounded-xl shadow-lg w-11/12 max-w-md text-center">
+                <h1 class="text-6xl font-bold text-red-500 mb-4">404</h1>
+                <h2 class="text-2xl font-semibold text-gray-200 mb-2">Page Not Found</h2>
+                <p class="text-gray-400 mb-6">The page you are looking for does not exist or has been moved.</p>
+                <a href="/" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition-colors duration-200">Go to Homepage</a>
+            </div>
+            <footer class="mt-12 text-center text-sm text-gray-500">
+                <p>&copy; 2025 All rights reserved to Muhammad Langdi.</p>
+            </footer>
+        </body>
+        </html>
+    `;
+    res.status(404).send(htmlContent);
+});
+
+// This tells Vercel to use your Express app for all requests.
+module.exports = app;
