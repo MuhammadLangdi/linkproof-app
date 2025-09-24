@@ -151,7 +151,7 @@ app.get('/', (req, res) => {
                                 li.className = 'flex items-center justify-between py-2';
                                 li.innerHTML = \`
                                     <span class="flex items-center space-x-2">
-                                        <a href="/proof/\${receipt.hash}" class="text-blue-400 hover:text-blue-300 transition-colors duration-200 font-mono">\${receipt.hash.substring(0, 10)}...</a>
+                                        <a href="/proof/\${receipt.hash}" class="text-blue-400 hover:text-blue-300 transition-colors duration-200 font-mono">\${receipt.filename}</a>
                                         <button onclick="copyHashToClipboard('\${receipt.hash}')" class="text-gray-500 hover:text-white focus:outline-none">
                                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                                                 <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
@@ -253,6 +253,7 @@ app.get('/', (req, res) => {
 
                     const formData = new FormData();
                     formData.append('myFile', file);
+                    formData.append('filename', file.name);
 
                     try {
                         const response = await fetch('/upload', {
@@ -404,20 +405,23 @@ app.get('/user-receipts', async (req, res) => {
 });
 
 // This is the upload endpoint.
-app.post('/upload', upload.single('myFile'), async (req, res) => {
-    if (!req.file) {
-        return res.status(400).send('No file uploaded.');
+app.post('/upload', upload.fields([{ name: 'myFile', maxCount: 1 }, { name: 'filename', maxCount: 1 }]), async (req, res) => {
+    if (!req.files || !req.files.myFile || !req.files.filename) {
+        return res.status(400).send('No file or filename uploaded.');
     }
     if (!req.session.userId) {
         return res.status(401).json({ message: 'You must be logged in to create a receipt.' });
     }
+    const file = req.files.myFile[0];
+    const filename = req.files.filename[0].buffer.toString();
     try {
-        const hash = crypto.createHash('sha256').update(req.file.buffer).digest('hex');
+        const hash = crypto.createHash('sha256').update(file.buffer).digest('hex');
         const receiptsCollection = getDb().collection("receipts");
         const receiptDocument = {
             hash: hash,
             timestamp: new Date(),
-            userId: new ObjectId(req.session.userId)
+            userId: new ObjectId(req.session.userId),
+            filename: filename
         };
         await receiptsCollection.insertOne(receiptDocument);
         const link = `https://linkproof.co/proof/${hash}`;
