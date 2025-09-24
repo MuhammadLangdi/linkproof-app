@@ -160,7 +160,7 @@ app.get('/user-receipts', async (req, res) => {
     }
 });
 
-// This is the upload endpoint.
+// This is the upload endpoint with the new duplicate check.
 app.post('/upload', upload.single('myFile'), async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ message: 'No file uploaded.' });
@@ -169,12 +169,24 @@ app.post('/upload', upload.single('myFile'), async (req, res) => {
         return res.status(401).json({ message: 'You must be logged in to create a receipt.' });
     }
     const file = req.file;
-    // Get the filename directly from the uploaded file's original name.
     const filename = file.originalname;
     const email = req.body.email;
+    
     try {
         const hash = crypto.createHash('sha256').update(file.buffer).digest('hex');
         const receiptsCollection = getDb().collection("receipts");
+
+        // Check if a receipt with this hash already exists
+        const existingReceipt = await receiptsCollection.findOne({ hash: hash });
+        if (existingReceipt) {
+            const link = `https://linkproof.co/proof/${hash}`;
+            return res.status(409).json({ 
+                message: 'This file has already been registered.',
+                link: link
+            });
+        }
+
+        // If no existing receipt is found, proceed to create a new one.
         const receiptDocument = {
             hash: hash,
             timestamp: new Date(),
@@ -184,7 +196,7 @@ app.post('/upload', upload.single('myFile'), async (req, res) => {
         };
         await receiptsCollection.insertOne(receiptDocument);
         const link = `https://linkproof.co/proof/${hash}`;
-        res.json({ link: link });
+        res.status(200).json({ link: link, message: 'File uploaded successfully!' });
 
         // Send the email if an email address was provided
         if (email) {
