@@ -167,7 +167,8 @@ app.post('/upload', upload.single('myFile'), async (req, res) => {
         return res.status(401).json({ message: 'You must be logged in to create a receipt.' });
     }
     const file = req.file;
-    const filename = req.body.filename;
+    // Get the filename directly from the uploaded file's original name.
+    const filename = file.originalname;
     const email = req.body.email;
     try {
         const hash = crypto.createHash('sha256').update(file.buffer).digest('hex');
