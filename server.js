@@ -4,6 +4,8 @@ const multer = require('multer');
 const path = require('path');
 const crypto = require('crypto');
 const { MongoClient } = require('mongodb'); 
+const bcrypt = require('bcrypt'); // NEW: For password hashing
+const session = require('express-session'); // NEW: For managing user sessions
 const app = express();
 const upload = multer({
     storage: multer.memoryStorage(),
@@ -11,6 +13,15 @@ const upload = multer({
         fileSize: 5 * 1024 * 1024 // 5 MB in bytes
     }
 });
+
+// NEW: Set up express-session middleware
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
+app.use(session({
+    secret: 'a-strong-secret-key', // You should change this to a random string
+    resave: false,
+    saveUninitialized: true
+}));
 
 // Database connection setup
 const uri = process.env.MONGODB_URI;
@@ -33,7 +44,22 @@ app.get('/', (req, res) => {
                 <h1 class="text-4xl md:text-5xl font-bold mb-4">LinkProof.co</h1>
                 <p class="text-gray-400 mb-6">Future-proof your content. Get a permanent public receipt for your work.</p>
 
-                <div id="createProofSection" class="mb-8">
+                <div id="authSection" class="mb-8">
+                    <h2 class="text-xl font-bold mb-4">Account</h2>
+                    <form id="authForm" class="flex flex-col items-center">
+                        <input type="text" id="username" placeholder="Username" class="bg-gray-700 text-white py-2 px-4 rounded-lg w-full max-w-sm mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        <input type="password" id="password" placeholder="Password" class="bg-gray-700 text-white py-2 px-4 rounded-lg w-full max-w-sm mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        <div class="flex space-x-4">
+                            <button type="submit" id="signupBtn" class="bg-blue-500 text-white py-2 px-6 rounded-lg hover:bg-blue-600 transition-colors duration-200">Sign Up</button>
+                            <button type="submit" id="loginBtn" class="bg-green-500 text-white py-2 px-6 rounded-lg hover:bg-green-600 transition-colors duration-200">Log In</button>
+                        </div>
+                    </form>
+                    <p id="authMessage" class="text-gray-300 text-sm mt-2"></p>
+                </div>
+                
+                <hr class="border-gray-700 my-8">
+
+                <div id="createProofSection" class="mb-8 hidden">
                     <h2 class="text-xl font-bold mb-4">Create a new LinkProof</h2>
                     <form id="uploadForm" class="flex flex-col items-center mb-6">
                         <label for="file-upload" class="cursor-pointer">
@@ -48,9 +74,9 @@ app.get('/', (req, res) => {
                     <a id="linkProof" href="#" class="text-blue-400 hover:text-blue-300 transition-colors duration-200 hidden mt-4"></a>
                 </div>
 
-                <hr class="border-gray-700 my-8">
+                <hr class="border-gray-700 my-8 hidden">
 
-                <div id="verifyProofSection">
+                <div id="verifyProofSection" class="hidden">
                     <h2 class="text-xl font-bold mb-4">Verify a file's existence</h2>
                     <form id="verifyForm" class="flex flex-col items-center mb-6">
                         <label for="verify-file-upload" class="cursor-pointer">
@@ -70,6 +96,62 @@ app.get('/', (req, res) => {
             </footer>
 
             <script>
+                // Show/hide sections based on login state
+                function showMainContent() {
+                    document.getElementById('authSection').classList.add('hidden');
+                    document.getElementById('createProofSection').classList.remove('hidden');
+                    document.querySelector('#createProofSection + hr').classList.remove('hidden');
+                    document.getElementById('verifyProofSection').classList.remove('hidden');
+                }
+
+                // Auth form logic
+                const authForm = document.getElementById('authForm');
+                const usernameInput = document.getElementById('username');
+                const passwordInput = document.getElementById('password');
+                const authMessage = document.getElementById('authMessage');
+
+                authForm.addEventListener('submit', async (event) => {
+                    event.preventDefault();
+
+                    const isSignUp = event.submitter.id === 'signupBtn';
+                    const endpoint = isSignUp ? '/signup' : '/login';
+                    const payload = {
+                        username: usernameInput.value,
+                        password: passwordInput.value
+                    };
+
+                    authMessage.textContent = 'Processing...';
+                    authMessage.classList.add('text-yellow-400');
+
+                    try {
+                        const response = await fetch(endpoint, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(payload)
+                        });
+
+                        const result = await response.json();
+
+                        if (response.ok) {
+                            authMessage.textContent = result.message;
+                            authMessage.classList.remove('text-yellow-400');
+                            authMessage.classList.add('text-green-400');
+                            if (!isSignUp) showMainContent();
+                        } else {
+                            authMessage.textContent = result.message || 'An error occurred.';
+                            authMessage.classList.remove('text-yellow-400');
+                            authMessage.classList.add('text-red-400');
+                        }
+                    } catch (error) {
+                        console.error('Error:', error);
+                        authMessage.textContent = 'An error occurred. Please try again.';
+                        authMessage.classList.remove('text-yellow-400');
+                        authMessage.classList.add('text-red-400');
+                    }
+                });
+
                 // Create Proof
                 const fileInput = document.getElementById('file-upload');
                 const uploadButton = document.querySelector('#createProofSection button');
@@ -175,6 +257,63 @@ app.get('/', (req, res) => {
     res.send(htmlContent);
 });
 
+// NEW: Signup endpoint
+app.post('/signup', async (req, res) => {
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+        return res.status(400).json({ message: 'Username and password are required.' });
+    }
+
+    try {
+        await client.connect();
+        const usersCollection = client.db(dbName).collection('users');
+
+        const existingUser = await usersCollection.findOne({ username });
+        if (existingUser) {
+            return res.status(409).json({ message: 'Username already exists.' });
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+        await usersCollection.insertOne({ username, password: hashedPassword });
+
+        res.status(201).json({ message: 'User created successfully! You can now log in.' });
+    } catch (error) {
+        console.error("Error during signup:", error);
+        res.status(500).json({ message: 'An internal error occurred.' });
+    } finally {
+        await client.close();
+    }
+});
+
+// NEW: Login endpoint
+app.post('/login', async (req, res) => {
+    const { username, password } = req.body;
+
+    try {
+        await client.connect();
+        const usersCollection = client.db(dbName).collection('users');
+
+        const user = await usersCollection.findOne({ username });
+        if (!user) {
+            return res.status(401).json({ message: 'Invalid username or password.' });
+        }
+
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) {
+            return res.status(401).json({ message: 'Invalid username or password.' });
+        }
+
+        req.session.userId = user._id;
+        res.status(200).json({ message: 'Logged in successfully!', user: { username: user.username } });
+    } catch (error) {
+        console.error("Error during login:", error);
+        res.status(500).json({ message: 'An internal error occurred.' });
+    } finally {
+        await client.close();
+    }
+});
+
 // This is the upload endpoint.
 app.post('/upload', upload.single('myFile'), async (req, res) => {
     if (!req.file) {
@@ -198,33 +337,6 @@ app.post('/upload', upload.single('myFile'), async (req, res) => {
     } catch (error) {
         console.error("Error processing file upload:", error);
         res.status(500).send("An error occurred during upload.");
-    } finally {
-        await client.close();
-    }
-});
-
-// ADDED: New verify endpoint
-app.post('/verify', upload.single('myFile'), async (req, res) => {
-    if (!req.file) {
-        return res.status(400).send('No file uploaded.');
-    }
-
-    try {
-        await client.connect();
-        const hash = crypto.createHash('sha256').update(req.file.buffer).digest('hex');
-
-        const database = client.db(dbName);
-        const receiptsCollection = database.collection("receipts");
-        const receipt = await receiptsCollection.findOne({ hash: hash });
-
-        if (receipt) {
-            res.json({ exists: true, timestamp: receipt.timestamp });
-        } else {
-            res.json({ exists: false });
-        }
-    } catch (error) {
-        console.error("Error processing verification:", error);
-        res.status(500).send("An error occurred during verification.");
     } finally {
         await client.close();
     }
