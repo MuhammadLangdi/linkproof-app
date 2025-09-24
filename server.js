@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const { MongoClient, ObjectId } = require('mongodb');
 const bcrypt = require('bcrypt');
 const session = require('express-session');
+const nodemailer = require('nodemailer'); // NEW: Import nodemailer
 const app = express();
 const upload = multer({
     storage: multer.memoryStorage(),
@@ -28,7 +29,40 @@ const uri = process.env.MONGODB_URI;
 const client = new MongoClient(uri);
 const dbName = "linkproof-db";
 
-// NEW: Connect to the database once when the server starts
+// Nodemailer Transporter
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+    }
+});
+
+// Helper function to send email
+const sendProofEmail = (to, filename, link) => {
+    const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: to,
+        subject: `Your LinkProof Receipt for "${filename}"`,
+        html: `
+            <p>Hello,</p>
+            <p>Your digital receipt has been created successfully on LinkProof.co.</p>
+            <p><strong>File Name:</strong> ${filename}</p>
+            <p><strong>Link to your Proof:</strong> <a href="${link}">${link}</a></p>
+            <p>This is a permanent, public record of your file's existence.</p>
+            <p>Thank you for using LinkProof.co!</p>
+        `
+    };
+
+    transporter.sendMail(mailOptions, (error, info) => {
+        if (error) {
+            return console.log('Error sending email:', error);
+        }
+        console.log('Email sent:', info.response);
+    });
+};
+
+// Connect to the database once when the server starts
 async function run() {
     try {
         await client.connect();
@@ -424,7 +458,7 @@ app.post('/upload', upload.single('myFile'), async (req, res) => {
     }
     const file = req.file;
     const filename = req.body.filename;
-    const email = req.body.email; // New line to get the email
+    const email = req.body.email;
     try {
         const hash = crypto.createHash('sha256').update(file.buffer).digest('hex');
         const receiptsCollection = getDb().collection("receipts");
@@ -433,11 +467,17 @@ app.post('/upload', upload.single('myFile'), async (req, res) => {
             timestamp: new Date(),
             userId: new ObjectId(req.session.userId),
             filename: filename,
-            email: email // New line to save the email
+            email: email
         };
         await receiptsCollection.insertOne(receiptDocument);
         const link = `https://linkproof.co/proof/${hash}`;
         res.json({ link: link });
+
+        // NEW: Send the email if an email address was provided
+        if (email) {
+            sendProofEmail(email, filename, link);
+        }
+
     } catch (error) {
         console.error("Error processing file upload:", error);
         res.status(500).json({ message: 'An error occurred during upload.' });
