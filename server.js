@@ -28,6 +28,22 @@ const uri = process.env.MONGODB_URI;
 const client = new MongoClient(uri);
 const dbName = "linkproof-db";
 
+// NEW: Connect to the database once when the server starts
+async function run() {
+    try {
+        await client.connect();
+        console.log("Connected to MongoDB successfully!");
+    } catch (e) {
+        console.error("Failed to connect to MongoDB:", e);
+    }
+}
+run().catch(console.dir);
+
+// Helper function to get the database instance
+function getDb() {
+    return client.db(dbName);
+}
+
 // This serves your front-end HTML.
 app.get('/', (req, res) => {
     const htmlContent = `
@@ -57,43 +73,46 @@ app.get('/', (req, res) => {
                     <p id="authMessage" class="text-gray-300 text-sm mt-2"></p>
                 </div>
                 
-                <hr class="border-gray-700 my-8 hidden">
+                <hr class="border-gray-700 my-8">
 
-                <div id="dashboardSection" class="hidden">
-                    <h2 class="text-xl font-bold mb-4">Your Dashboard</h2>
-                    <ul id="receiptsList" class="text-left w-full max-w-lg mb-4"></ul>
+                <div id="mainContent" class="hidden">
+                    <div id="dashboardSection">
+                        <h2 class="text-xl font-bold mb-4">Your Dashboard</h2>
+                        <ul id="receiptsList" class="text-left w-full max-w-lg mb-4"></ul>
+                    </div>
+
+                    <div id="createProofSection" class="mb-8 mt-8">
+                        <h2 class="text-xl font-bold mb-4">Create a new LinkProof</h2>
+                        <form id="uploadForm" class="flex flex-col items-center mb-6">
+                            <label for="file-upload" class="cursor-pointer">
+                                <div class="border-2 border-dashed border-gray-600 rounded-lg p-12 w-full max-w-lg mb-4 hover:border-blue-500 transition-colors duration-200">
+                                    <p class="text-gray-400 mb-2">Drag & Drop a file here or</p>
+                                    <button type="button" class="bg-gray-700 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors duration-200">Click to upload</button>
+                                    <input id="file-upload" name="myFile" type="file" class="hidden" />
+                                </div>
+                            </label>
+                        </form>
+                        <p id="responseMessage" class="text-gray-300 text-sm"></p>
+                        <a id="linkProof" href="#" class="text-blue-400 hover:text-blue-300 transition-colors duration-200 hidden mt-4"></a>
+                    </div>
+
                     <hr class="border-gray-700 my-8">
-                </div>
 
-                <div id="createProofSection" class="mb-8 hidden">
-                    <h2 class="text-xl font-bold mb-4">Create a new LinkProof</h2>
-                    <form id="uploadForm" class="flex flex-col items-center mb-6">
-                        <label for="file-upload" class="cursor-pointer">
-                            <div class="border-2 border-dashed border-gray-600 rounded-lg p-12 w-full max-w-lg mb-4 hover:border-blue-500 transition-colors duration-200">
-                                <p class="text-gray-400 mb-2">Drag & Drop a file here or</p>
-                                <button type="button" class="bg-gray-700 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors duration-200">Click to upload</button>
-                                <input id="file-upload" name="myFile" type="file" class="hidden" />
-                            </div>
-                        </label>
-                    </form>
-                    <p id="responseMessage" class="text-gray-300 text-sm"></p>
-                    <a id="linkProof" href="#" class="text-blue-400 hover:text-blue-300 transition-colors duration-200 hidden mt-4"></a>
-                </div>
+                    <div id="verifyProofSection">
+                        <h2 class="text-xl font-bold mb-4">Verify a file's existence</h2>
+                        <form id="verifyForm" class="flex flex-col items-center mb-6">
+                            <label for="verify-file-upload" class="cursor-pointer">
+                                <div class="border-2 border-dashed border-gray-600 rounded-lg p-12 w-full max-w-lg mb-4 hover:border-blue-500 transition-colors duration-200">
+                                    <p class="text-gray-400 mb-2">Drag & Drop a file here or</p>
+                                    <button type="button" class="bg-gray-700 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors duration-200">Click to verify</button>
+                                    <input id="verify-file-upload" name="myFile" type="file" class="hidden" />
+                                </div>
+                            </label>
+                        </form>
+                        <p id="verifyMessage" class="text-gray-300 text-sm"></p>
+                    </div>
 
-                <hr class="border-gray-700 my-8 hidden">
-
-                <div id="verifyProofSection" class="hidden">
-                    <h2 class="text-xl font-bold mb-4">Verify a file's existence</h2>
-                    <form id="verifyForm" class="flex flex-col items-center mb-6">
-                        <label for="verify-file-upload" class="cursor-pointer">
-                            <div class="border-2 border-dashed border-gray-600 rounded-lg p-12 w-full max-w-lg mb-4 hover:border-blue-500 transition-colors duration-200">
-                                <p class="text-gray-400 mb-2">Drag & Drop a file here or</p>
-                                <button type="button" class="bg-gray-700 text-white py-2 px-4 rounded-lg hover:bg-gray-600 transition-colors duration-200">Click to verify</button>
-                                <input id="verify-file-upload" name="myFile" type="file" class="hidden" />
-                            </div>
-                        </label>
-                    </form>
-                    <p id="verifyMessage" class="text-gray-300 text-sm"></p>
+                    <button id="logoutBtn" class="mt-8 bg-red-500 text-white py-2 px-6 rounded-lg hover:bg-red-600 transition-colors duration-200">Log Out</button>
                 </div>
             </div>
 
@@ -105,13 +124,15 @@ app.get('/', (req, res) => {
                 // Show/hide sections based on login state
                 function showMainContent() {
                     document.getElementById('authSection').classList.add('hidden');
-                    document.querySelector('#authSection + hr').classList.add('hidden');
-                    document.getElementById('dashboardSection').classList.remove('hidden');
-                    document.getElementById('createProofSection').classList.remove('hidden');
-                    document.querySelector('#createProofSection + hr').classList.remove('hidden');
-                    document.getElementById('verifyProofSection').classList.remove('hidden');
+                    document.getElementById('mainContent').classList.remove('hidden');
                     fetchReceipts(); // Fetch and display user's receipts
                 }
+
+                // Redirect to homepage on logout
+                document.getElementById('logoutBtn').addEventListener('click', async () => {
+                    await fetch('/logout', { method: 'POST' });
+                    window.location.href = '/';
+                });
 
                 async function fetchReceipts() {
                     const receiptsList = document.getElementById('receiptsList');
@@ -226,12 +247,9 @@ app.get('/', (req, res) => {
                             linkProof.href = result.link;
                             linkProof.textContent = result.link;
                             linkProof.classList.remove('hidden');
-                            // Use setTimeout to allow the UI to update before navigating
-                            setTimeout(() => {
-                                window.location.href = result.link; // Redirect to the new proof page
-                            }, 500);
+                            window.location.href = result.link; // Redirect to the new proof page
                         } else {
-                            responseMessage.textContent = 'An error occurred during upload.';
+                            responseMessage.textContent = result.message || 'An error occurred during upload.';
                             responseMessage.classList.remove('text-yellow-400');
                             responseMessage.classList.add('text-red-400');
                         }
@@ -281,7 +299,7 @@ app.get('/', (req, res) => {
                                 verifyMessage.classList.add('text-red-400');
                             }
                         } else {
-                            verifyMessage.textContent = 'An error occurred during verification.';
+                            verifyMessage.textContent = result.message || 'An error occurred during verification.';
                             verifyMessage.classList.remove('text-yellow-400');
                             verifyMessage.classList.add('text-red-400');
                         }
@@ -303,8 +321,7 @@ app.get('/', (req, res) => {
 app.post('/signup', async (req, res) => {
     const { username, password } = req.body;
     try {
-        await client.connect();
-        const usersCollection = client.db(dbName).collection('users');
+        const usersCollection = getDb().collection('users');
         const existingUser = await usersCollection.findOne({ username });
         if (existingUser) {
             return res.status(409).json({ message: 'Username already exists.' });
@@ -315,8 +332,6 @@ app.post('/signup', async (req, res) => {
     } catch (error) {
         console.error("Error during signup:", error);
         res.status(500).json({ message: 'An internal error occurred.' });
-    } finally {
-        await client.close();
     }
 });
 
@@ -324,8 +339,7 @@ app.post('/signup', async (req, res) => {
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
     try {
-        await client.connect();
-        const usersCollection = client.db(dbName).collection('users');
+        const usersCollection = getDb().collection('users');
         const user = await usersCollection.findOne({ username });
         if (!user) {
             return res.status(401).json({ message: 'Invalid username or password.' });
@@ -339,9 +353,17 @@ app.post('/login', async (req, res) => {
     } catch (error) {
         console.error("Error during login:", error);
         res.status(500).json({ message: 'An internal error occurred.' });
-    } finally {
-        await client.close();
     }
+});
+
+// NEW: Logout endpoint
+app.post('/logout', (req, res) => {
+    req.session.destroy(err => {
+        if (err) {
+            return res.status(500).send('Could not log out.');
+        }
+        res.status(200).send('Logged out successfully.');
+    });
 });
 
 // Endpoint to get user-specific receipts
@@ -350,15 +372,12 @@ app.get('/user-receipts', async (req, res) => {
         return res.status(401).json({ message: 'Unauthorized' });
     }
     try {
-        await client.connect();
-        const receiptsCollection = client.db(dbName).collection('receipts');
+        const receiptsCollection = getDb().collection('receipts');
         const userReceipts = await receiptsCollection.find({ userId: new ObjectId(req.session.userId) }).toArray();
         res.json(userReceipts);
     } catch (error) {
         console.error("Error fetching user receipts:", error);
         res.status(500).json({ message: "An error occurred." });
-    } finally {
-        await client.close();
     }
 });
 
@@ -371,23 +390,19 @@ app.post('/upload', upload.single('myFile'), async (req, res) => {
         return res.status(401).json({ message: 'You must be logged in to create a receipt.' });
     }
     try {
-        await client.connect();
         const hash = crypto.createHash('sha256').update(req.file.buffer).digest('hex');
-        const database = client.db(dbName);
-        const receiptsCollection = database.collection("receipts");
+        const receiptsCollection = getDb().collection("receipts");
         const receiptDocument = {
             hash: hash,
             timestamp: new Date(),
             userId: new ObjectId(req.session.userId)
         };
         await receiptsCollection.insertOne(receiptDocument);
-        const link = "https://linkproof.co/proof/" + hash;
+        const link = `https://linkproof.co/proof/${hash}`;
         res.json({ link: link });
     } catch (error) {
         console.error("Error processing file upload:", error);
         res.status(500).send("An error occurred during upload.");
-    } finally {
-        await client.close();
     }
 });
 
@@ -395,9 +410,7 @@ app.post('/upload', upload.single('myFile'), async (req, res) => {
 app.get('/proof/:hash', async (req, res) => {
     const hash = req.params.hash;
     try {
-        await client.connect();
-        const database = client.db(dbName);
-        const receiptsCollection = database.collection("receipts");
+        const receiptsCollection = getDb().collection("receipts");
         const receipt = await receiptsCollection.findOne({ hash: hash });
         if (!receipt) {
             return res.status(404).send(`
@@ -455,8 +468,6 @@ app.get('/proof/:hash', async (req, res) => {
     } catch (error) {
         console.error("Error processing proof request:", error);
         res.status(500).send("An error occurred.");
-    } finally {
-        await client.close();
     }
 });
 
