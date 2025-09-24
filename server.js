@@ -236,6 +236,8 @@ app.get('/proof/:hash', async (req, res) => {
     const hash = req.params.hash;
     try {
         const receiptsCollection = getDb().collection("receipts");
+        const usersCollection = getDb().collection("users");
+        
         const receipt = await receiptsCollection.findOne({ hash: hash });
         if (!receipt) {
             return res.status(404).send(`
@@ -261,6 +263,11 @@ app.get('/proof/:hash', async (req, res) => {
                 </html>
             `);
         }
+        
+        // Find the user who created the receipt
+        const user = await usersCollection.findOne({ _id: new ObjectId(receipt.userId) });
+        const username = user ? user.username : 'Anonymous User';
+
         const htmlContent = `
             <!DOCTYPE html>
             <html lang="en">
@@ -278,7 +285,7 @@ app.get('/proof/:hash', async (req, res) => {
                         <p class="text-green-500 font-mono text-sm">${hash}</p>
                     </div>
                     <p class="text-gray-400 text-sm mt-4">The integrity of the file can be verified by comparing its hash with this URL.</p>
-                    <p class="text-gray-400 text-sm mt-4">This receipt was created on **${receipt.timestamp.toUTCString()}**.</p>
+                    <p class="text-gray-400 text-sm mt-4">This receipt was created on **${receipt.timestamp.toUTCString()}** by **${username}**.</p>
                     <div class="mt-8">
                         <a href="https://www.linkproof.co" class="text-blue-400 hover:text-blue-300 transition-colors duration-200">Go back to LinkProof.co</a>
                     </div>
