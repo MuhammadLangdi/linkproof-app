@@ -1,4 +1,4 @@
-// Ensure this code is placed in your script.js file.
+                     script.js file
 
 document.addEventListener('DOMContentLoaded', () => {
 
@@ -236,5 +236,5 @@ document.addEventListener('DOMContentLoaded', () => {
     verifyFileUploadButton.addEventListener('click', () => {
         verifyFileInput.click();
     });
-
 });
+
