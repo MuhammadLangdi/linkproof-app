@@ -68,7 +68,7 @@ const sendProofEmail = (to, filename, link) => {
             <p><strong>File Name:</strong> ${filename}</p>
             <p><strong>Link to your Proof:</strong> <a href="${link}">${link}</a></p>
             <p>This is a permanent, public record of your file's existence.</p>
-            <p>Thank you for using LinkProof.co!</p>
+            <p>Thank you for using Link Proof!</p>
         `
     };
 
@@ -332,3 +332,4 @@ app.use((req, res, next) => {
 
 // This tells Vercel to use your Express app for all requests.
 module.exports = app;
+
