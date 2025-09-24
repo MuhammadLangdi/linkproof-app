@@ -1,0 +1,16 @@
+{
+  "name": "linkproof",
+  "version": "1.0.0",
+  "description": "A web app for creating permanent digital receipts.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "db": "^6.0.3",
+    "express": "^4.19.2",
+    "mongo": "^0.1.0",
+    "mongodb": "^6.20.0",
+    "multer": "^1.4.5-lts.1"
+  }
+}
