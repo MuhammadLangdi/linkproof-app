@@ -7,6 +7,7 @@ const { MongoClient, ObjectId } = require('mongodb');
 const bcrypt = require('bcrypt');
 const session = require('express-session');
 const nodemailer = require('nodemailer');
+const MongoStore = require('connect-mongo');
 const app = express();
 const upload = multer({
     storage: multer.memoryStorage(),
@@ -15,13 +16,18 @@ const upload = multer({
     }
 });
 
-// Set up express-session middleware
+// Set up express-session middleware with MongoDB store
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(session({
     secret: 'a-strong-secret-key',
     resave: false,
-    saveUninitialized: true
+    saveUninitialized: true,
+    store: MongoStore.create({
+        mongoUrl: process.env.MONGODB_URI,
+        dbName: 'linkproof-db',
+        collectionName: 'sessions'
+    })
 }));
 
 // Serve index.html from the root directory
