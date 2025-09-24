@@ -17,16 +17,6 @@ const uri = process.env.MONGODB_URI;
 const client = new MongoClient(uri);
 const dbName = "linkproof-db";
 
-async function connectToDatabase() {
-    try {
-        await client.connect();
-        console.log("Connected to MongoDB Atlas!");
-    } catch (error) {
-        console.error("Could not connect to database:", error);
-    }
-}
-
-connectToDatabase();
 
 // This serves your front-end HTML.
 app.get('/', (req, res) => {
@@ -127,6 +117,7 @@ app.post('/upload', upload.single('myFile'), async (req, res) => {
     }
 
     try {
+        await client.connect(); // ADDED: Connect to the database
         const hash = crypto.createHash('sha256').update(req.file.buffer).digest('hex');
 
         // Save the hash to the database
@@ -143,6 +134,8 @@ app.post('/upload', upload.single('myFile'), async (req, res) => {
     } catch (error) {
         console.error("Error processing file upload:", error);
         res.status(500).send("An error occurred during upload.");
+    } finally {
+        await client.close(); // ADDED: Close the connection
     }
 });
 
@@ -150,66 +143,74 @@ app.post('/upload', upload.single('myFile'), async (req, res) => {
 app.get('/proof/:hash', async (req, res) => {
     const hash = req.params.hash;
 
-    // Check if the hash exists in the database
-    const database = client.db(dbName);
-    const receiptsCollection = database.collection("receipts");
-    const receipt = await receiptsCollection.findOne({ hash: hash });
+    try {
+        await client.connect(); // ADDED: Connect to the database
+        // Check if the hash exists in the database
+        const database = client.db(dbName);
+        const receiptsCollection = database.collection("receipts");
+        const receipt = await receiptsCollection.findOne({ hash: hash });
 
-    if (!receipt) {
-        // If no receipt is found, show a not-found page
-        return res.status(404).send(`
+        if (!receipt) {
+            // If no receipt is found, show a not-found page
+            return res.status(404).send(`
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>Receipt Not Found</title>
+                    <script src="https://cdn.tailwindcss.com"></script>
+                </head>
+                <body class="bg-gray-900 text-white font-sans flex flex-col items-center justify-center min-h-screen">
+                    <div class="bg-gray-800 p-8 rounded-xl shadow-lg w-11/12 max-w-md text-center">
+                        <h1 class="text-6xl font-bold text-red-500 mb-4">404</h1>
+                        <h2 class="text-2xl font-semibold text-gray-200 mb-2">Receipt Not Found</h2>
+                        <p class="text-gray-400 mb-6">The digital receipt you are looking for does not exist.</p>
+                        <a href="/" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition-colors duration-200">Go to Homepage</a>
+                    </div>
+                    <footer class="mt-12 text-center text-sm text-gray-500">
+                        <p>&copy; 2025 All rights reserved to Muhammad Langdi.</p>
+                    </footer>
+                </body>
+                </html>
+            `);
+        }
+
+        const htmlContent = `
             <!DOCTYPE html>
             <html lang="en">
             <head>
                 <meta charset="UTF-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                <title>Receipt Not Found</title>
+                <title>LinkProof - Digital Receipt</title>
                 <script src="https://cdn.tailwindcss.com"></script>
             </head>
             <body class="bg-gray-900 text-white font-sans flex flex-col items-center justify-center min-h-screen">
-                <div class="bg-gray-800 p-8 rounded-xl shadow-lg w-11/12 max-w-md text-center">
-                    <h1 class="text-6xl font-bold text-red-500 mb-4">404</h1>
-                    <h2 class="text-2xl font-semibold text-gray-200 mb-2">Receipt Not Found</h2>
-                    <p class="text-gray-400 mb-6">The digital receipt you are looking for does not exist.</p>
-                    <a href="/" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded transition-colors duration-200">Go to Homepage</a>
+                <div class="bg-gray-800 p-8 rounded-xl shadow-lg w-11/12 max-w-2xl text-center">
+                    <h1 class="text-4xl font-bold mb-4 text-green-400">Digital Receipt Confirmed</h1>
+                    <p class="text-gray-300 text-lg mb-6">This URL confirms the existence of a digital asset with the following unique digital fingerprint.</p>
+                    <div class="bg-gray-900 p-4 rounded-lg break-words">
+                        <p class="text-green-500 font-mono text-sm">${hash}</p>
+                    </div>
+                    <p class="text-gray-400 text-sm mt-4">The integrity of the file can be verified by comparing its hash with this URL.</p>
+                    <p class="text-gray-400 text-sm mt-4">This receipt was created on **${receipt.timestamp.toUTCString()}**.</p>
+                    <div class="mt-8">
+                        <a href="https://www.linkproof.co" class="text-blue-400 hover:text-blue-300 transition-colors duration-200">Go back to LinkProof.co</a>
+                    </div>
                 </div>
                 <footer class="mt-12 text-center text-sm text-gray-500">
                     <p>&copy; 2025 All rights reserved to Muhammad Langdi.</p>
                 </footer>
             </body>
             </html>
-        `);
+        `;
+        res.send(htmlContent);
+    } catch (error) {
+        console.error("Error processing proof request:", error);
+        res.status(500).send("An error occurred.");
+    } finally {
+        await client.close(); // ADDED: Close the connection
     }
-
-    const htmlContent = `
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>LinkProof - Digital Receipt</title>
-            <script src="https://cdn.tailwindcss.com"></script>
-        </head>
-        <body class="bg-gray-900 text-white font-sans flex flex-col items-center justify-center min-h-screen">
-            <div class="bg-gray-800 p-8 rounded-xl shadow-lg w-11/12 max-w-2xl text-center">
-                <h1 class="text-4xl font-bold mb-4 text-green-400">Digital Receipt Confirmed</h1>
-                <p class="text-gray-300 text-lg mb-6">This URL confirms the existence of a digital asset with the following unique digital fingerprint.</p>
-                <div class="bg-gray-900 p-4 rounded-lg break-words">
-                    <p class="text-green-500 font-mono text-sm">${hash}</p>
-                </div>
-                <p class="text-gray-400 text-sm mt-4">The integrity of the file can be verified by comparing its hash with this URL.</p>
-                <p class="text-gray-400 text-sm mt-4">This receipt was created on **${receipt.timestamp.toUTCString()}**.</p>
-                <div class="mt-8">
-                    <a href="https://www.linkproof.co" class="text-blue-400 hover:text-blue-300 transition-colors duration-200">Go back to LinkProof.co</a>
-                </div>
-            </div>
-            <footer class="mt-12 text-center text-sm text-gray-500">
-                <p>&copy; 2025 All rights reserved to Muhammad Langdi.</p>
-            </footer>
-        </body>
-        </html>
-    `;
-    res.send(htmlContent);
 });
 
 // This is the custom 404 page. It must come LAST in your code.
