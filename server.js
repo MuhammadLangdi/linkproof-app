@@ -1,4 +1,4 @@
-// This imports all the tools for server.
+// This imports all the tools we need for our server.
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
