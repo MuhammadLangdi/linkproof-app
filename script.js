@@ -1,8 +1,10 @@
-// Ensure this code is placed in your script.js file.
+// This script contains all the client-side logic for LinkProof.co.
+// It handles user authentication (login/signup), file uploads, file verification,
+// and manages the UI to show and hide sections based on login status.
 
 document.addEventListener('DOMContentLoaded', () => {
 
-    // Function to show/hide sections and update UI
+    // Helper function to update the user interface based on login status.
     function updateUI(isLoggedIn = false, username = '') {
         const authSection = document.getElementById('authSection');
         const mainContent = document.getElementById('mainContent');
@@ -18,10 +20,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Function to fetch user receipts and display them
+    // Fetches and displays the user's past receipts.
     async function fetchUserReceipts() {
         const receiptsList = document.getElementById('receiptsList');
-        receiptsList.innerHTML = '';
+        receiptsList.innerHTML = ''; // Clear the list before populating.
         try {
             const response = await fetch('/user-receipts');
             if (response.ok) {
@@ -47,7 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Check if user is already logged in on page load
+    // Checks if a user is already logged in when the page loads.
     async function checkLoginStatus() {
         try {
             const response = await fetch('/user-receipts');
@@ -66,21 +68,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     checkLoginStatus();
 
+    // Get references to HTML elements.
     const authForm = document.getElementById('authForm');
     const usernameInput = document.getElementById('username');
     const passwordInput = document.getElementById('password');
-    const signupBtn = document.getElementById('signupBtn');
-    const loginBtn = document.getElementById('loginBtn');
     const authMessage = document.getElementById('authMessage');
 
-    // Handles both signup and login form submission
+    // Add event listener to the entire authentication form.
+    // This handles both signup and login button clicks.
     authForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
+        e.preventDefault(); // Prevents the page from reloading on form submission.
+
         const username = usernameInput.value;
         const password = passwordInput.value;
         const isSignup = e.submitter.id === 'signupBtn';
-
-        let url = isSignup ? '/signup' : '/login';
+        const url = isSignup ? '/signup' : '/login';
 
         try {
             const response = await fetch(url, {
@@ -96,7 +98,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 updateUI(true, username);
                 fetchUserReceipts();
             }
-
         } catch (error) {
             authMessage.textContent = 'An internal error occurred.';
             authMessage.style.color = 'rgb(239, 68, 68)';
@@ -104,13 +105,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // File upload section.
     const uploadForm = document.getElementById('uploadForm');
     const fileInput = document.getElementById('file-upload');
     const responseMessage = document.getElementById('responseMessage');
     const linkProof = document.getElementById('linkProof');
     const emailInput = document.getElementById('email');
 
-    // Handles file upload
+    // Handles the file upload process.
     uploadForm.addEventListener('submit', async (e) => {
         e.preventDefault();
 
@@ -149,7 +151,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 responseMessage.textContent = result.message || 'An error occurred during upload.';
                 responseMessage.style.color = 'rgb(239, 68, 68)';
             }
-
         } catch (error) {
             responseMessage.textContent = 'An error occurred during upload.';
             responseMessage.style.color = 'rgb(239, 68, 68)';
@@ -157,11 +158,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // File verification section.
     const verifyForm = document.getElementById('verifyForm');
     const verifyFileInput = document.getElementById('verify-file-upload');
     const verifyMessage = document.getElementById('verifyMessage');
 
-    // Handles file verification
+    // Handles file verification.
     verifyForm.addEventListener('submit', async (e) => {
         e.preventDefault();
 
@@ -197,7 +199,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 verifyMessage.textContent = 'An error occurred during verification.';
                 verifyMessage.style.color = 'rgb(239, 68, 68)';
             }
-
         } catch (error) {
             verifyMessage.textContent = 'An error occurred during verification.';
             verifyMessage.style.color = 'rgb(239, 68, 68)';
@@ -205,9 +206,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // Logout button.
     const logoutBtn = document.getElementById('logoutBtn');
 
-    // Handles logout
+    // Handles the logout process.
     logoutBtn.addEventListener('click', async () => {
         try {
             const response = await fetch('/logout', {
@@ -223,17 +225,21 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Code to handle the "Click to upload" and "Click to verify" buttons
+    // Enables the hidden file input fields to be triggered by button clicks.
     const fileUploadButton = document.getElementById('file-upload-button');
-    const fileInput = document.getElementById('file-upload');
     const verifyFileUploadButton = document.getElementById('verify-file-upload-button');
-    const verifyFileInput = document.getElementById('verify-file-upload');
+    const fileInputTrigger = document.getElementById('file-upload');
+    const verifyInputTrigger = document.getElementById('verify-file-upload');
 
-    fileUploadButton.addEventListener('click', () => {
-        fileInput.click();
-    });
+    if (fileUploadButton) {
+        fileUploadButton.addEventListener('click', () => {
+            fileInputTrigger.click();
+        });
+    }
 
-    verifyFileUploadButton.addEventListener('click', () => {
-        verifyFileInput.click();
-    });
+    if (verifyFileUploadButton) {
+        verifyFileUploadButton.addEventListener('click', () => {
+            verifyInputTrigger.click();
+        });
+    }
 });
