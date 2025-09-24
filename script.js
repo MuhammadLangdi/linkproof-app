@@ -1,3 +1,5 @@
+// Ensure this code is placed in your script.js file.
+
 document.addEventListener('DOMContentLoaded', () => {
 
     // Function to show/hide sections and update UI
@@ -52,7 +54,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (response.ok) {
                 const userReceipts = await response.json();
                 if (userReceipts) {
-                    // Assuming we can get the username from the session or another endpoint
                     updateUI(true, 'User');
                     fetchUserReceipts();
                 }
